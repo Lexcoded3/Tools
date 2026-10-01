@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WHOIS — Domain · IP · ASN Intelligence Terminal</title>
+<meta name="description" content="WHOIS terminal: instant RDAP lookups for domains, IP addresses and AS numbers. Keyless, free, no account.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@whois: ~/registries — WHOIS v1.0</span>
+            <span class="tb-actions">
+                <button type="button" id="btnExample" title="Look up example.com">◈ SAMPLE</button>
+            </span>
+        </div>
+
+        <!-- terminal body -->
+        <div class="term" id="term">
+            <div class="term-output" id="output" tabindex="0" aria-live="polite"></div>
+            <div class="term-prompt-row">
+                <span class="prompt-label" id="promptLabel">root@whois:~$</span>
+                <input type="text" id="cmd" class="cmd-input" autocomplete="off" spellcheck="false" placeholder="lookup google.com | 8.8.8.8 | AS15169" aria-label="Terminal command">
+            </div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stEngine">RDAP</span>
+            <span id="stSource">keyless · no account</span>
+            <span id="stLast">last: --</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

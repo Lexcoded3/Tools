@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WHATSL0G — Secure Chat Transmission Decoder</title>
+<meta name="description" content="WHATSL0G: read an exported WhatsApp chat .txt file inside a hacker terminal. 100% local — the file never leaves your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👾</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@w4log: ~/transmissions — WHATSL0G v2.4</span>
+            <span class="tb-actions">
+                <button type="button" id="btnLoad" title="Load a WhatsApp chat export (.txt)">⏏ LOAD</button>
+                <button type="button" id="btnSample" title="Load the built-in sample transmission">◈ SAMPLE</button>
+            </span>
+        </div>
+
+        <!-- terminal body -->
+        <div class="term" id="term">
+            <div class="term-output" id="output" tabindex="0" aria-live="polite"></div>
+            <div class="term-prompt-row">
+                <span class="prompt-label" id="promptLabel">root@w4log:~$</span>
+                <input type="text" id="cmd" class="cmd-input" autocomplete="off" spellcheck="false" aria-label="Terminal command">
+            </div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stFile">NO_SIGNAL</span>
+            <span id="stMsgs">msgs: --</span>
+            <span id="stUsers">users: --</span>
+            <span id="stE2e">E2E: SECURE</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<!-- drop / upload overlay -->
+<div class="dropzone" id="dropzone">
+    <div class="dz-inner">
+        <div class="dz-banner" id="dzBanner"></div>
+        <p class="dz-title">DROP CHAT LOG // CLICK TO BROWSE</p>
+        <p class="dz-sub">WhatsApp export <b>.txt</b> · parsed 100% locally · never uploaded</p>
+        <button type="button" id="dzBrowse" class="btn">⏏ BROWSE FILES</button>
+        <button type="button" id="dzSample" class="btn btn-ghost">◈ LOAD SAMPLE</button>
+    </div>
+</div>
+
+<input type="file" id="fileInput" accept=".txt,text/plain" hidden>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

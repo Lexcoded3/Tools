@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIPHERLAB — Text &amp; Cipher Workbench</title>
+<meta name="description" content="CIPHERLAB: encode, decode, hash, format and analyze text — base64, hex, URL, ROT13, SHA, JSON, regex, diff, wc. 100% local, no uploads.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@cipherlab: ~/workbench — CIPHERLAB v1.0</span>
+            <span class="tb-actions">
+                <button type="button" id="btnSample" title="Load a sample payload">◈ SAMPLE</button>
+                <button type="button" id="btnSwap" title="Move OUTPUT back into INPUT">⇅ LOOP</button>
+            </span>
+        </div>
+
+        <!-- workbench: input / output panes -->
+        <div class="lab" id="lab">
+            <div class="pane">
+                <div class="pane-head"><span class="pane-tag">▍INPUT // SOURCE</span><span class="pane-meta" id="inMeta">0 B</span></div>
+                <textarea id="inText" class="pane-text" spellcheck="false" autocomplete="off"
+                    placeholder="Paste text here, then type a command below.&#10;Try: b64 enc · hex · sha256 · json fmt · upper · wc"></textarea>
+            </div>
+            <div class="pane">
+                <div class="pane-head">
+                    <span class="pane-tag">▍OUTPUT // RESULT</span>
+                    <span class="pane-meta">
+                        <span id="outMeta">—</span>
+                        <button type="button" id="btnCopy" class="mini" title="Copy output">⧉ COPY</button>
+                    </span>
+                </div>
+                <div class="pane-out" id="outPane" tabindex="0" aria-live="polite"></div>
+            </div>
+        </div>
+
+        <!-- command line -->
+        <div class="term-prompt-row">
+            <span class="prompt-label">lab&gt;</span>
+            <input type="text" id="cmd" class="cmd-input" autocomplete="off" spellcheck="false"
+                placeholder="help · b64 enc|dec · hex · url · rot13 · sha256 · json fmt|min · regex &lt;pat&gt; · diff &lt;text&gt; · wc" aria-label="Command">
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stMode">READY</span>
+            <span id="stInfo">100% local — nothing leaves this terminal</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

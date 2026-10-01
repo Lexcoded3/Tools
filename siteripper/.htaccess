@@ -1,0 +1,5 @@
+# SiteRipper — pretty preview URLs.
+# Serves an exported site at its own mirrored path so relative links work:
+#   site/<job-id>/<relpath>  →  index.php?action=view&id=<job-id>&file=/<relpath>
+RewriteEngine On
+RewriteRule ^site/([A-Za-z0-9_\-]+)/(.+)$ index.php?action=view&id=$1&file=/$2 [L,QSA]

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PASSFORGE — Password &amp; Passphrase Forge</title>
+<meta name="description" content="PASSFORGE: strong random passwords and diceware-style passphrases with an entropy meter, plus Have I Been Pwned breach checks. No key, no uploads.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔑</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@passforge: ~/keysmith — PASSFORGE v1.0</span>
+            <span class="tb-actions">
+                <button type="button" id="btnTabPw" class="tabbtn active" title="Random passwords">⌨ PASSWORD</button>
+                <button type="button" id="btnTabPh" class="tabbtn" title="Passphrases">◈ PASSPHRASE</button>
+                <button type="button" id="btnTabCheck" class="tabbtn" title="Breach check">☠ PWNED?</button>
+            </span>
+        </div>
+
+        <!-- PASSWORD panel -->
+        <div class="pf-panel" id="panelPw">
+            <div class="pf-form">
+                <div class="pf-bigout" id="pwOut">—</div>
+                <div class="pf-meta" id="pwMeta">—</div>
+
+                <div class="pf-ctlrow">
+                    <label class="pf-ctl">
+                        <span class="pf-label">LENGTH</span>
+                        <div class="pf-range-wrap">
+                            <input type="range" id="pwLen" min="8" max="64" value="20">
+                            <span class="pf-val" id="pwLenVal">20</span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="pf-checks">
+                    <label class="pf-chk"><input type="checkbox" id="pwUpper" checked> A–Z</label>
+                    <label class="pf-chk"><input type="checkbox" id="pwLower" checked> a–z</label>
+                    <label class="pf-chk"><input type="checkbox" id="pwDigit" checked> 0–9</label>
+                    <label class="pf-chk"><input type="checkbox" id="pwSym" checked> !@#$%</label>
+                    <label class="pf-chk"><input type="checkbox" id="pwExcl" checked> no ambiguous</label>
+                </div>
+
+                <div class="pf-actions">
+                    <button type="button" id="btnPwGen" class="btn">▚ FORGE</button>
+                    <button type="button" id="btnPwCopy" class="btn btn-ghost">⧉ COPY</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASSPHRASE panel -->
+        <div class="pf-panel hidden" id="panelPh">
+            <div class="pf-form">
+                <div class="pf-bigout" id="phOut">—</div>
+                <div class="pf-meta" id="phMeta">—</div>
+
+                <div class="pf-ctlrow">
+                    <label class="pf-ctl">
+                        <span class="pf-label">WORDS</span>
+                        <div class="pf-range-wrap">
+                            <input type="range" id="phWords" min="3" max="10" value="6">
+                            <span class="pf-val" id="phWordsVal">6</span>
+                        </div>
+                    </label>
+                    <label class="pf-ctl">
+                        <span class="pf-label">SEPARATOR</span>
+                        <select id="phSep">
+                            <option value="-">hyphen -</option>
+                            <option value=" " selected>space</option>
+                            <option value=".">dot .</option>
+                            <option value="_">underscore _</option>
+                            <option value=":">colon :</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="pf-checks">
+                    <label class="pf-chk"><input type="checkbox" id="phNum"> append a number</label>
+                    <label class="pf-chk"><input type="checkbox" id="phCap"> capitalize words</label>
+                </div>
+
+                <div class="pf-actions">
+                    <button type="button" id="btnPhGen" class="btn">▚ FORGE</button>
+                    <button type="button" id="btnPhCopy" class="btn btn-ghost">⧉ COPY</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PWNED panel -->
+        <div class="pf-panel hidden" id="panelCheck">
+            <div class="pf-form">
+                <label class="qr-field">
+                    <span class="qr-label">PASSWORD TO CHECK</span>
+                    <input type="password" id="checkPw" autocomplete="off" placeholder="type it here — never sent in full">
+                </label>
+
+                <div class="pf-actions">
+                    <button type="button" id="btnCheck" class="btn">☠ CHECK BREACHES</button>
+                    <button type="button" id="btnCheckCopy" class="btn btn-ghost">⧉ COPY</button>
+                </div>
+
+                <p class="faint" id="checkExplain" style="margin-top:10px">
+                    Uses Have I Been Pwned's k-anonymity API: only the first 5
+                    characters of the SHA-1 hash leave your browser — never the
+                    password itself. Free, no key.
+                </p>
+
+                <div class="pf-bigout small" id="checkOut">—</div>
+                <div class="pf-meta" id="checkMeta">—</div>
+            </div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stMode">PASSWORD</span>
+            <span id="stInfo">crypto.getRandomValues · no key needed</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

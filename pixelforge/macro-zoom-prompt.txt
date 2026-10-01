@@ -1,0 +1,99 @@
+================================================================================
+ DETAILED & HIGHLY ZOOMED SUBJECT PROMPTS
+ (for Stable Diffusion / PixelForge image generation)
+================================================================================
+
+HOW TO USE
+----------
+In PixelForge: paste a version into the "Prompt" field — either alone or
+APPENDED after your subject ("a vintage watch, " + one of the blocks below).
+The one-liner below is the strongest general version; the categorized
+blocks help you fine-tune for a specific subject (nature vs objects vs
+people close-ups). Keep the whole prompt under ~2000 characters — the free
+Perchance backend caps the prompt length.
+
+--------------------------------------------------------------------------------
+ VERSION 1 — ONE-LINE (all-purpose, strongest)
+--------------------------------------------------------------------------------
+extreme close-up, macro photography, subject fills the frame, highly detailed, intricate details, hyperdetailed, fine texture, sharp focus, ultra sharp, ultra high resolution, 8k, razor-sharp details, shallow depth of field, creamy bokeh background, macro lens, professional product photography, studio lighting, crisp edges
+
+--------------------------------------------------------------------------------
+ VERSION 2 — SHORT (fast, for batches)
+--------------------------------------------------------------------------------
+extreme close-up, macro, highly detailed, intricate, sharp focus, ultra sharp, 8k, fine texture, shallow depth of field, bokeh, fills the frame
+
+--------------------------------------------------------------------------------
+ VERSION 3 — BARE (for "No style", keeps your prompt neutral)
+--------------------------------------------------------------------------------
+extreme close-up, macro shot, highly detailed, intricate details, sharp focus, fills the frame, shallow depth of field, fine texture detail
+
+--------------------------------------------------------------------------------
+ CATEGORIZED — UNDERSTAND WHAT EACH BLOCK ADDS
+--------------------------------------------------------------------------------
+
+[ ZOOM & FRAMING ]    ← makes the subject BIG in the frame
+    extreme close-up, macro shot, photomicrograph, magnified view,
+    zoomed in, tight crop, subject fills the frame, fills 90% of the
+    frame, full-frame close-up, no background, plain background,
+    minimal background, centered subject
+
+[ DETAIL BOOSTERS ]   ← pure detail words (safe to stack)
+    highly detailed, hyperdetailed, intricate details, ornate detail,
+    fine detail, micro-texture, razor-sharp details, crisp details,
+    visible texture, complex detail, rich detail, ultra fine detail,
+    meticulous detail, surface detail
+
+[ LENS & CAMERA ]     ← camera language = believable macro look
+    macro lens, 100mm macro lens, f/2.8, shallow depth of field,
+    creamy bokeh background, blurred background, focus stacking,
+    ring flash, raking light, soft studio lighting, high-key lighting,
+    85mm lens, lens flare on highlights
+
+[ NATURE & INSECTS ]  ← go-to close-up subjects
+    insect macro (eyes, wings, antennae), dew drops on petals,
+    pollen grains, frost crystals, feathers, fish scales, leaf veins,
+    butterfly wing dust, spiderweb threads, mushroom gills, moss detail
+
+[ OBJECTS & MATERIALS ]  ← man-made texture and craft
+    watch gears, clockwork mechanism, circuit board traces, soldered
+    joints, fabric weave, knit stitch detail, wood grain, tree rings,
+    gemstone facets, jewelry filigree, engraved metal, coin embossing,
+    keyboard keycaps, paper fibers, brushstroke texture, cracked glaze
+
+[ FOOD & DRINK ]      ← appetite-level zoom
+    sugar crystals, frosting swirls, chocolate texture, coffee crema,
+    rising steam, condensation droplets, soda bubbles, flaky pastry,
+    sesame seeds on bun, juice droplets, caramel strands, ice crystals
+
+[ PEOPLE CLOSE-UPS ]  ← face/eye macros (pair with negative-prompt.txt!)
+    eye macro, iris detail, individual eyelashes, skin pores, freckles,
+    lip texture, hair strands, eyebrow hairs, beauty macro, dewy skin,
+    makeup detail (mascara, glitter), stubble texture, wrinkles
+
+--------------------------------------------------------------------------------
+ PRO TIPS
+--------------------------------------------------------------------------------
+1. Pair people close-ups with the "Negative prompt" field — paste from
+   negative-prompt.txt so the model never drifts into deformed faces,
+   extra fingers or anime skin. They are designed to work together.
+
+2. Guidance scale: 7–12. Lower (6–9) keeps texture natural; higher
+   (10–12) sharpens fine detail but can over-polish skin.
+
+3. For a believable macro look, include ONE camera phrase (e.g. "macro
+   lens, shallow depth of field") — it signals framing + lens behavior,
+   not just "zoom".
+
+4. "Fill the frame" is the single strongest zoom cue. Add it before any
+   detail words if the subject keeps coming out small.
+
+5. Keep prompts under ~2000 characters (Perchance backend limit).
+   The short Version 2 is ideal for 16/32-image batches.
+
+6. Fixed seed + fixed prompt = comparable results — change one variable
+   at a time to see which detail tokens actually help.
+
+7. Style pairing: "Photo" or "No style" works best for realism.
+   Skip styles like "Anime" or "Pixel Art" unless a stylized close-up
+   is the goal.
+================================================================================

@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "node-id3": "^0.2.9",
+    "youtubedl-core": "^4.11.7",
+    "youtubei.js": "^18.0.0"
+  }
+}

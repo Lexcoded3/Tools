@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IMGINTEL — Picture Intelligence Terminal</title>
+<meta name="description" content="IMGINTEL: drop any image and extract its secrets — true file format, camera EXIF + GPS metadata, embedded QR/barcodes, OCR text, palette, and file hashes. Runs in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@imgintel: ~/forensics — IMGINTEL v1.0</span>
+            <span class="tb-actions">
+                <button type="button" id="btnBrowse" class="tabbtn" title="Browse for an image">⏏ BROWSE</button>
+                <button type="button" id="btnSample" class="tabbtn" title="Analyze the built-in sample picture">◈ SAMPLE</button>
+                <button type="button" id="btnCopy" class="tabbtn" title="Copy the whole report to clipboard">⧉ REPORT</button>
+            </span>
+        </div>
+
+        <!-- body: left = interact, right = results -->
+        <div class="ii-grid">
+
+            <div class="ii-side">
+                <!-- drop zone -->
+                <div class="drop-zone" id="dropZone" tabindex="0">
+                    <div class="ii-banner" id="iiBanner"></div>
+                    <p class="ii-drop-title">DROP PICTURE // CLICK TO BROWSE // PASTE WORKS TOO</p>
+                    <p class="ii-drop-sub">png · jpg · gif · webp · bmp · tiff · ico · avif · heic</p>
+                    <p class="ii-drop-sub faint">everything local except OCR + QR fallback (CDN, first use)</p>
+                </div>
+
+                <!-- current file card -->
+                <div class="ii-file-card hidden" id="iiFileCard">
+                    <div class="ii-file-row">
+                        <span class="ii-k">FILE</span>
+                        <span class="ii-v" id="fcName">—</span>
+                    </div>
+                    <div class="ii-file-row">
+                        <span class="ii-k">SIZE</span>
+                        <span class="ii-v" id="fcSize">—</span>
+                    </div>
+                    <div class="ii-file-row">
+                        <span class="ii-k">DIMS</span>
+                        <span class="ii-v" id="fcDims">—</span>
+                    </div>
+                    <div class="ii-file-row">
+                        <span class="ii-k">SNAPSHOT</span>
+                        <span class="ii-v" id="fcSnap"><img id="fcThumb" alt="preview" hidden></span>
+                    </div>
+                </div>
+
+                <div class="ii-side-actions">
+                    <button type="button" id="btnOcr" class="btn" disabled>⬡ RUN OCR</button>
+                    <button type="button" id="btnNew" class="btn btn-ghost mini2" disabled>⟲ NEW</button>
+                </div>
+                <div class="ii-hint faint">⬡ OCR pulls the Tesseract engine + English<br>language data (~10 MB) from CDN on first use.<br>QR decode prefers the browser's native BarcodeDetector.</div>
+            </div>
+
+            <div class="ii-main">
+                <div class="ii-out" id="iiOut">
+                    <div class="mt-placeholder" id="iiPlaceholder">
+                        <p class="mt-ph-title">[ PICTURE INTELLIGENCE ]</p>
+                        <p class="faint">Drop an image on the left panel — or hit ◈ SAMPLE for a demo.</p>
+                        <p class="faint">You'll get the true file format, camera metadata + GPS,</p>
+                        <p class="faint">embedded QR/barcodes, OCR'd text, palette, and hashes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stFile">NO_IMAGE</span>
+            <span id="stInfo">awaiting input</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" hidden>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

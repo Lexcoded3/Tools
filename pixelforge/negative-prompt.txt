@@ -1,0 +1,78 @@
+================================================================================
+ NEGATIVE PROMPT — ELIMINATE DEFORMED HUMAN FORMS
+ (for Stable Diffusion / PixelForge image generation)
+================================================================================
+
+HOW TO USE
+----------
+In PixelForge: open the ⚙ ADVANCED panel → paste a version into the
+"Negative prompt" field. The one-liner below is the strongest general
+version; the categorized list helps you fine-tune for a specific scene
+(portrait vs full body vs group shot).
+
+--------------------------------------------------------------------------------
+ VERSION 1 — ONE-LINE (all-purpose, strongest)
+--------------------------------------------------------------------------------
+deformed, disfigured, mutated, bad anatomy, bad proportions, extra limbs, missing limbs, malformed limbs, fused limbs, extra fingers, missing fingers, fused fingers, extra arms, extra hands, extra legs, extra eyes, missing eyes, deformed iris, pupil deformation, cross-eyed, asymmetric eyes, mangled face, distorted face, ugly face, duplicate face, cloned face, duplicated limbs, misplaced limbs, long neck, twisted body, warped body, contorted body, broken anatomy, inhuman anatomy, malformed hands, twisted hands, clawed hands, webbed fingers, amputee, severed limbs, amputated, extra nipples, extra breasts, hermaphrodite, multiple heads, two heads, no head, floating head, detached head, disembodied, body horror, grotesque, morbid, mutilated, dismembered, low quality, worst quality, lowres, blurry, out of focus, jpeg artifacts, watermark, signature, text, logo, username, cropped, out of frame, oversaturated, underexposed
+
+--------------------------------------------------------------------------------
+ VERSION 2 — SHORT (fast, for batches)
+--------------------------------------------------------------------------------
+deformed, disfigured, bad anatomy, bad proportions, extra limbs, missing limbs, extra fingers, fused fingers, malformed hands, mangled face, distorted face, duplicate face, cross-eyed, asymmetric eyes, mutated, ugly, blurry, low quality, worst quality, watermark, text
+
+--------------------------------------------------------------------------------
+ CATEGORIZED — UNDERSTAND WHAT EACH BLOCK FIXES
+--------------------------------------------------------------------------------
+
+[ HANDS & FINGERS ]   ← the #1 failure in Stable Diffusion
+    extra fingers, missing fingers, fused fingers, webbed fingers,
+    extra hands, malformed hands, twisted hands, clawed hands,
+    deformed hands, hand disfigurement, too many fingers, too few fingers
+
+[ LIMBS & BODY ]      ← prevents extra or missing arms/legs and weird joints
+    extra limbs, missing limbs, extra arms, extra legs, missing arms,
+    missing legs, malformed limbs, misplaced limbs, fused limbs,
+    duplicated limbs, severed limbs, amputee, amputated, dismembered,
+    contorted body, twisted body, warped body, broken anatomy
+
+[ FACE & HEAD ]       ← keeps faces human and symmetrical
+    mangled face, distorted face, disfigured face, ugly face,
+    deformed face, asymmetric face, asymmetric eyes, cross-eyed,
+    deformed iris, pupil deformation, missing eyes, extra eyes,
+    duplicate face, cloned face, multiple heads, two heads, no head,
+    floating head, detached head, long neck
+
+[ MORBID / HORROR ]   ← bans body horror and gore leaks
+    grotesque, morbid, mutilated, body horror, mutated, disfigured,
+    inhuman anatomy, disembodied, decayed, gore, blood
+
+[ QUALITY & CLEANLINESS ]  ← standard quality tokens (always include)
+    low quality, worst quality, lowres, blurry, out of focus,
+    jpeg artifacts, pixelated, grainy, oversaturated, underexposed,
+    watermark, signature, text, logo, username, cropped, out of frame
+
+--------------------------------------------------------------------------------
+ PRO TIPS
+--------------------------------------------------------------------------------
+1. Weighted anatomy (if your model supports A1111/Comfy syntax):
+   (deformed hands:1.4), (extra fingers:1.3), (bad anatomy:1.2)
+   PixelForge's free Perchance backend ignores weights, so use plain
+   comma lists there.
+
+2. If hands still fail, add to the POSITIVE prompt:
+   "perfect hands, five fingers, detailed hands, anatomically correct"
+
+3. For portraits only, add: "no body, bust shot, head and shoulders"
+   For full bodies, drop the face block down to just
+   "deformed, disfigured, bad anatomy, extra limbs, extra fingers"
+
+4. Guidance scale: keep it 6–9. Too low (<5) lets deformities slip
+   through; too high (>12) can cause over-sharpened, plastic skin.
+
+5. Same seed + same negative = reproducible results. Use the 🎲/S key
+   to test a few seeds until a batch comes out clean.
+
+6. A fixed (non-random) seed + a fixed style is the best way to compare
+   whether a new negative token actually helps — change one variable at
+   a time.
+================================================================================

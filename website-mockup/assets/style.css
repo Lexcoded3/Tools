@@ -1,0 +1,578 @@
+/* ============================================================
+   MOCKUPGEN — CRT terminal styling (matches WHATSL0G family)
+   ============================================================ */
+
+:root {
+    --bg: #020603;
+    --screen-bg: #030805;
+    --fg: #33ff66;
+    --fg-dim: #1f8f43;
+    --fg-faint: #0f5c2b;
+    --glow: rgba(51, 255, 102, 0.55);
+    --glow-soft: rgba(51, 255, 102, 0.18);
+    --accent: #b8ffc9;
+    --scanline: rgba(0, 0, 0, 0.22);
+    --vignette: rgba(0, 0, 0, 0.55);
+    --bezel: #0b0d0c;
+    --bezel-edge: #1a1f1c;
+    --titlebar: #0a0e0b;
+    --panel: #04120a;
+    --dev-bezel: #15171a;
+    --dev-bezel-edge: #262a2e;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    min-height: 100%;
+    background: #000;
+}
+
+body {
+    font-family: "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+    color: var(--fg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    background:
+        radial-gradient(ellipse at 50% 30%, #04120a 0%, #000 70%);
+    text-shadow: 0 0 6px var(--glow);
+}
+
+/* ---------- CRT bezel + screen ---------- */
+.crt-bezel {
+    width: min(1240px, 96vw);
+    background: var(--bezel);
+    border: 1px solid var(--bezel-edge);
+    border-radius: 26px;
+    padding: 26px 26px 30px;
+    box-shadow:
+        0 0 0 2px #000,
+        0 0 0 3px #2a2f2c,
+        0 0 60px rgba(0, 0, 0, 0.9),
+        inset 0 0 40px rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+}
+
+.crt-screen {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--screen-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.85);
+    animation: turnon 0.9s ease-out;
+}
+
+/* scanlines */
+.crt-screen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        var(--scanline) 3px,
+        var(--scanline) 4px
+    );
+    z-index: 40;
+    opacity: 0.7;
+    mix-blend-mode: multiply;
+}
+
+/* vignette */
+.crt-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, var(--vignette) 100%);
+    z-index: 41;
+}
+
+@keyframes turnon {
+    0%   { transform: scaleY(0.004) scaleX(0.6); filter: brightness(8); }
+    40%  { transform: scaleY(0.004) scaleX(1);   filter: brightness(4); }
+    100% { transform: scaleY(1) scaleX(1);       filter: brightness(1); }
+}
+
+/* ---------- titlebar ---------- */
+.titlebar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    background: var(--titlebar);
+    border-bottom: 1px solid var(--bezel-edge);
+    font-size: 12px;
+    letter-spacing: 1px;
+    user-select: none;
+    flex: none;
+}
+
+.tb-dots { display: flex; gap: 6px; }
+.tb-dots i {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.tb-dots i:nth-child(1) { background: #ff5f57; box-shadow: 0 0 6px rgba(255,95,87,.6); }
+.tb-dots i:nth-child(2) { background: #febc2e; box-shadow: 0 0 6px rgba(254,188,46,.6); }
+.tb-dots i:nth-child(3) { background: #28c840; box-shadow: 0 0 6px rgba(40,200,64,.6); }
+
+.tb-title { color: var(--fg-dim); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tb-actions { display: flex; gap: 8px; }
+
+/* ---------- tabs ---------- */
+.tabs {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px 0;
+    flex: none;
+}
+.tab {
+    background: transparent;
+    color: var(--fg-dim);
+    border: 1px solid var(--bezel-edge);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    text-shadow: 0 0 6px var(--glow);
+    transition: all .15s;
+}
+.tab:hover { color: var(--fg); border-color: var(--fg-dim); }
+.tab.active {
+    color: var(--accent);
+    background: var(--glow-soft);
+    border-color: var(--fg-dim);
+    box-shadow: 0 0 12px var(--glow-soft), inset 0 0 8px var(--glow-soft);
+}
+
+/* ---------- panels ---------- */
+.panel { display: none; padding: 16px; }
+.panel.active { display: block; }
+
+/* ---------- URL searchbox ---------- */
+.searchbox-wrap {
+    display: flex;
+    width: 100%;
+    max-width: 760px;
+    margin: 8px auto 4px;
+    position: relative;
+    z-index: 2;
+}
+.searchbox-wrap input {
+    flex: 1;
+    padding: 16px 18px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--fg);
+    background: #04120a;
+    border: 1px solid var(--fg-faint);
+    border-radius: 14px 0 0 14px;
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6);
+    text-shadow: 0 0 6px var(--glow);
+    outline: none;
+    min-width: 0;
+}
+.searchbox-wrap input:focus { border-color: var(--fg-dim); box-shadow: inset 0 0 12px rgba(0,0,0,.6), 0 0 12px var(--glow-soft); }
+.searchbox-wrap input::placeholder { color: var(--fg-faint); text-shadow: none; }
+.searchbox-wrap button {
+    padding: 16px 26px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #04120a;
+    background: var(--fg);
+    border: 1px solid var(--fg);
+    border-radius: 0 14px 14px 0;
+    cursor: pointer;
+    text-shadow: 0 0 4px rgba(0,0,0,.35);
+    transition: all .15s;
+}
+.searchbox-wrap button:hover { background: var(--accent); box-shadow: 0 0 16px var(--glow); }
+.searchbox-wrap button:disabled { opacity: .5; cursor: wait; }
+
+.hint {
+    text-align: center;
+    color: var(--fg-faint);
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin: 6px auto 18px;
+    max-width: 760px;
+}
+
+/* ---------- devices row ---------- */
+.devices {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 34px;
+    padding: 12px 0 4px;
+}
+
+.device {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 2;
+}
+.dev-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--fg-dim);
+}
+.dev-label .led {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--fg-faint);
+    box-shadow: 0 0 6px var(--fg-faint);
+}
+.device.loading .led { background: #febc2e; box-shadow: 0 0 8px rgba(254,188,46,.8); animation: blink 0.6s infinite; }
+.device.ready .led { background: var(--fg); box-shadow: 0 0 8px var(--glow); }
+.device.error .led { background: #ff5f57; box-shadow: 0 0 8px rgba(255,95,87,.8); }
+
+@keyframes blink { 50% { opacity: 0.2; } }
+
+/* ================= device frames (pure CSS) ================= */
+
+/* real device viewport sizes - each iframe renders at the device's true
+   width so media queries fire correctly, then scales down to fit the frame */
+.dev-desktop  { --dw: 1920px; --dh: 1080px; --s: 0.3583; }
+.dev-macbook  { --dw: 1440px; --dh: 900px;  --s: 0.4167; }
+.dev-ipad     { --dw: 768px;  --dh: 1024px; --s: 0.3229; }
+.dev-iphonex  { --dw: 375px;  --dh: 812px;  --s: 0.4533; }
+.dev-iphonese { --dw: 320px;  --dh: 568px;  --s: 0.4938; }
+
+.dev-screen .viewport {
+    position: absolute;
+    top: 0; left: 0;
+    width: var(--dw);
+    height: var(--dh);
+    transform: scale(var(--s));
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+
+/* ================= device frames (pure CSS) ================= */
+
+/* --- Desktop monitor 24" (wide) --- */
+.dev-desktop .dev-frame {
+    width: 720px;
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid var(--dev-bezel-edge);
+    box-shadow: 0 18px 40px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.dev-desktop .dev-screen { width: 688px; height: 387px; border-radius: 6px; }
+.dev-desktop .dev-frame::after { /* camera */
+    content: "";
+    position: absolute;
+    top: 6px; left: 50%;
+    width: 5px; height: 5px;
+    margin-left: -2.5px;
+    border-radius: 50%;
+    background: #04040a;
+    box-shadow: 0 0 3px rgba(0,0,0,.9), inset 0 0 1px #1a1a2a;
+}
+.dev-desktop .monitor-stand {
+    width: 60px;
+    height: 26px;
+    margin-top: -1px;
+    background: linear-gradient(#2b2e33, #14161a);
+    border: 1px solid var(--dev-bezel-edge);
+    border-top: none;
+    clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
+    box-shadow: 0 8px 16px rgba(0,0,0,.5);
+}
+.dev-desktop .monitor-base {
+    width: 240px;
+    height: 10px;
+    margin-top: -1px;
+    background: linear-gradient(#3a3d43, #17191d);
+    border-radius: 0 0 10px 10px;
+    border: 1px solid var(--dev-bezel-edge);
+    border-top: none;
+    box-shadow: 0 12px 24px rgba(0,0,0,.5);
+}
+
+/* --- MacBook Pro --- */
+.dev-frame { position: relative; background: var(--dev-bezel); }
+.dev-screen {
+    position: relative;
+    background: #020202;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: inset 0 0 24px rgba(0,0,0,.9);
+}
+.dev-screen iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: #fff;
+    border-radius: 8px;
+}
+.dev-screen .ph {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fg-faint);
+    font-size: 12px;
+    letter-spacing: 2px;
+    background: #020202;
+}
+
+.dev-macbook .dev-frame {
+    width: 640px;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--dev-bezel-edge);
+    box-shadow: 0 18px 40px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.dev-macbook .dev-screen { width: 600px; height: 375px; }
+.dev-macbook .dev-frame::after { /* camera */
+    content: "";
+    position: absolute;
+    top: 9px; left: 50%;
+    width: 5px; height: 5px;
+    margin-left: -2.5px;
+    border-radius: 50%;
+    background: #04040a;
+    box-shadow: 0 0 3px rgba(0,0,0,.9), inset 0 0 1px #1a1a2a;
+}
+.dev-macbook .base {
+    width: 690px;
+    height: 14px;
+    margin-top: -1px;
+    background: linear-gradient(#2b2e33, #14161a 60%, #0c0d10);
+    border-radius: 0 0 22px 22px;
+    border: 1px solid var(--dev-bezel-edge);
+    border-top: none;
+    box-shadow: 0 14px 26px rgba(0,0,0,.55);
+}
+.dev-macbook .base::after { /* hinge notch */
+    content: "";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 100%;
+    width: 90px; height: 6px;
+    background: #0c0d10;
+    border-radius: 0 0 8px 8px;
+}
+
+/* --- iPad Mini --- */
+.dev-ipad .dev-frame {
+    width: 300px;
+    border-radius: 30px;
+    padding: 26px;
+    border: 1px solid var(--dev-bezel-edge);
+    box-shadow: 0 16px 34px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.07);
+}
+.dev-ipad .dev-screen { width: 248px; height: 330px; border-radius: 6px; }
+.dev-ipad .dev-frame::before { /* camera */
+    content: "";
+    position: absolute;
+    top: 12px; left: 50%;
+    width: 5px; height: 5px;
+    margin-left: -2.5px;
+    border-radius: 50%;
+    background: #04040a;
+    box-shadow: 0 0 3px rgba(0,0,0,.9), inset 0 0 1px #1a1a2a;
+}
+.dev-ipad .dev-frame::after { /* home button */
+    content: "";
+    position: absolute;
+    bottom: 9px; left: 50%;
+    width: 26px; height: 26px;
+    margin-left: -13px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #33363c, #14161a 70%);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,.12), 0 2px 5px rgba(0,0,0,.6);
+}
+
+/* --- iPhone X --- */
+.dev-iphonex .dev-frame {
+    width: 190px;
+    border-radius: 32px;
+    padding: 10px;
+    border: 1px solid var(--dev-bezel-edge);
+    box-shadow: 0 16px 34px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.07);
+}
+.dev-iphonex .dev-screen { width: 170px; height: 368px; border-radius: 22px; }
+.dev-iphonex .dev-frame::after { /* notch / dynamic island */
+    content: "";
+    position: absolute;
+    top: 16px; left: 50%;
+    transform: translateX(-50%);
+    width: 62px; height: 16px;
+    border-radius: 9px;
+    background: #040404;
+    box-shadow: inset 0 0 2px rgba(255,255,255,.05);
+}
+
+/* --- iPhone SE --- */
+.dev-iphonese .dev-frame {
+    width: 190px;
+    border-radius: 30px;
+    padding: 16px;
+    border: 1px solid var(--dev-bezel-edge);
+    box-shadow: 0 16px 34px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.07);
+}
+.dev-iphonese .dev-screen { width: 158px; height: 280px; border-radius: 4px; }
+.dev-iphonese .dev-frame::after { /* home button */
+    content: "";
+    position: absolute;
+    bottom: 10px; left: 50%;
+    width: 24px; height: 24px;
+    margin-left: -12px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #33363c, #14161a 70%);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,.12), 0 2px 5px rgba(0,0,0,.6);
+}
+
+/* ================= upload mode ================= */
+
+.upload-wrap { max-width: 900px; margin: 0 auto; }
+
+.dev-picker {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+.dev-chip {
+    background: transparent;
+    color: var(--fg-dim);
+    border: 1px solid var(--bezel-edge);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: all .15s;
+}
+.dev-chip:hover { color: var(--fg); border-color: var(--fg-dim); }
+.dev-chip.active {
+    color: var(--accent);
+    background: var(--glow-soft);
+    border-color: var(--fg-dim);
+    box-shadow: 0 0 12px var(--glow-soft);
+}
+
+.dropzone {
+    border: 2px dashed var(--fg-faint);
+    border-radius: 16px;
+    padding: 42px 20px;
+    text-align: center;
+    color: var(--fg-dim);
+    cursor: pointer;
+    transition: all .2s;
+    background: rgba(4, 18, 10, 0.5);
+}
+.dropzone:hover, .dropzone.drag { border-color: var(--fg); color: var(--fg); box-shadow: 0 0 20px var(--glow-soft); }
+.dropzone .dz-title { font-size: 15px; letter-spacing: 2px; margin: 0 0 8px; color: var(--fg); }
+.dropzone .dz-sub { font-size: 11px; letter-spacing: 1px; color: var(--fg-faint); margin: 0; }
+.dropzone .dz-sub b { color: var(--fg-dim); }
+
+.mock-result { display: none; margin-top: 20px; text-align: center; }
+.mock-result.show { display: block; }
+.mock-result img {
+    max-width: 100%;
+    max-height: 70vh;
+    border: 1px solid var(--bezel-edge);
+    border-radius: 10px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.65);
+    background: #fff;
+}
+.mock-actions { margin-top: 14px; display: flex; gap: 10px; justify-content: center; }
+
+.btn {
+    padding: 12px 22px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #04120a;
+    background: var(--fg);
+    border: 1px solid var(--fg);
+    border-radius: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all .15s;
+}
+.btn:hover { background: var(--accent); box-shadow: 0 0 14px var(--glow); }
+.btn-ghost {
+    background: transparent;
+    color: var(--fg-dim);
+    border: 1px solid var(--bezel-edge);
+}
+.btn-ghost:hover { color: var(--fg); border-color: var(--fg-dim); box-shadow: none; }
+
+/* ---------- statusbar ---------- */
+.statusbar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 8px 16px;
+    background: var(--titlebar);
+    border-top: 1px solid var(--bezel-edge);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--fg-dim);
+    flex: none;
+}
+.statusbar span { white-space: nowrap; }
+.statusbar .st-right { margin-left: auto; }
+.statusbar .st-url { overflow: hidden; text-overflow: ellipsis; max-width: 42%; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1000px) {
+    .dev-desktop .dev-frame { width: 560px; }
+    .dev-desktop .dev-screen { width: 528px; height: 297px; }
+    .dev-desktop .monitor-base { width: 200px; }
+    .dev-macbook .dev-frame { width: 520px; }
+    .dev-macbook .dev-screen { width: 480px; height: 300px; }
+    .dev-macbook .base { width: 560px; }
+}
+@media (max-width: 640px) {
+    .dev-desktop .dev-frame { width: 92vw; padding: 12px; }
+    .dev-desktop .dev-screen { width: 100%; height: 210px; }
+    .dev-desktop .monitor-base { width: 60vw; }
+    .dev-macbook .dev-frame { width: 92vw; padding: 14px; }
+    .dev-macbook .dev-screen { width: 100%; height: 220px; }
+    .dev-macbook .base { width: 98vw; }
+    .dev-ipad .dev-frame { width: 240px; padding: 20px; }
+    .dev-ipad .dev-screen { width: 200px; height: 266px; }
+    .crt-bezel { padding: 14px; border-radius: 16px; }
+    .searchbox-wrap input { padding: 13px 14px; font-size: 12px; }
+    .searchbox-wrap button { padding: 13px 16px; font-size: 11px; }
+    .statusbar { flex-wrap: wrap; gap: 8px; }
+    .statusbar .st-url { max-width: 100%; }
+}

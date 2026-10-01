@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII FORGE — Image → ASCII Converter</title>
+<meta name="description" content="ASCII FORGE: drop any image and forge it into ASCII art — density ramps, color modes, inversion, scaling. Copy the art. 100% local.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@asciiforge: ~/artisan — ASCII FORGE v1.0</span>
+            <span class="tb-actions">
+                <button type="button" id="btnSample" title="Forge the built-in sample image">◈ SAMPLE</button>
+            </span>
+        </div>
+
+        <!-- body -->
+        <div class="forge" id="forge">
+            <!-- drop panel -->
+            <div class="drop-panel" id="dropPanel">
+                <div class="fp-banner" id="fpBanner"></div>
+                <p class="fp-title">DROP IMAGE // CLICK TO BROWSE</p>
+                <p class="fp-sub">png · jpg · gif · webp — converted 100% locally</p>
+                <button type="button" id="btnBrowse" class="btn">⏏ BROWSE IMAGE</button>
+            </div>
+
+            <!-- result panel (hidden until an image is forged) -->
+            <div class="result-panel hidden" id="resultPanel">
+                <div class="art-scroll">
+                    <pre class="art" id="artOut"></pre>
+                </div>
+            </div>
+
+            <!-- controls -->
+            <div class="controls hidden" id="controls">
+                <label class="ctl">
+                    <span class="ctl-name">RAMP</span>
+                    <select id="ctlRamp">
+                        <option value="classic" selected>classic .:-=+*#%@</option>
+                        <option value="blocks">blocks ░▒▓█</option>
+                        <option value="shade">shade ▁▂▃▄▅▆▇█</option>
+                        <option value="braille">braille ⠿</option>
+                        <option value="binary">binary 01</option>
+                        <option value="hex">hex 0-f</option>
+                    </select>
+                </label>
+                <label class="ctl">
+                    <span class="ctl-name">SIZE</span>
+                    <select id="ctlSize">
+                        <option value="0.5">0.5×</option>
+                        <option value="1" selected>1×</option>
+                        <option value="1.5">1.5×</option>
+                        <option value="2">2×</option>
+                        <option value="3">3×</option>
+                    </select>
+                </label>
+                <label class="ctl ctl-check">
+                    <input type="checkbox" id="ctlInvert"> INVERT
+                </label>
+                <label class="ctl ctl-check">
+                    <input type="checkbox" id="ctlColor"> COLOR
+                </label>
+                <button type="button" id="btnCopy" class="btn btn-ghost btn-small">⧉ COPY ART</button>
+                <button type="button" id="btnNew" class="btn btn-ghost btn-small">⟲ NEW IMAGE</button>
+            </div>
+
+            <div class="meta-line faint hidden" id="metaLine"></div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stFile">NO_IMAGE</span>
+            <span id="stInfo">forged: 0 × 0 chars</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" hidden>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

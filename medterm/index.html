@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDTERM — Symptom &amp; Drug Reference Terminal</title>
+<meta name="description" content="MEDTERM: look up a symptom and see commonly used generic drugs, or a drug and see what it treats. Informational reference — not medical advice.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚕</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@medterm: ~/reference — MEDTERM v1.0</span>
+            <span class="tb-actions">
+                <button type="button" id="btnTabSym" class="tabbtn active" title="Symptom → drugs">◈ SYMPTOM</button>
+                <button type="button" id="btnTabDrug" class="tabbtn" title="Drug → what it treats">⚗ DRUG</button>
+                <button type="button" id="btnTabPlan" class="tabbtn" title="Plan for a patient">▚ PLAN</button>
+                <button type="button" id="btnMode" class="tabbtn" title="Toggle light / dark mode">☀ LIGHT</button>
+            </span>
+        </div>
+
+        <!-- SYMPTOM panel: left = interact, right = result -->
+        <div class="mt-panel" id="panelSym">
+            <div class="mt-side">
+                <div class="mt-searchrow">
+                    <span class="prompt-label">sym&gt;</span>
+                    <div class="mt-searchwrap">
+                        <input type="text" id="symSearch" class="mt-search" autocomplete="off" spellcheck="false"
+                            placeholder="type a symptom — headache…">
+                        <div class="sugg" id="symSugg" hidden></div>
+                    </div>
+                </div>
+                <div class="mt-side-label">BROWSE BY CATEGORY</div>
+                <div class="mt-side-scroll"><div class="chip-row" id="symCats"></div></div>
+            </div>
+            <div class="mt-main">
+                <div class="mt-out" id="symOut">
+                    <div class="mt-placeholder">
+                        <p class="mt-ph-title">[ SYMPTOM → DRUG LOOKUP ]</p>
+                        <p class="faint">Type a symptom in the left panel, or click a category.</p>
+                        <p class="faint">Then tap any suggested drug to flip to its full profile.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DRUG panel: left = interact, right = result -->
+        <div class="mt-panel hidden" id="panelDrug">
+            <div class="mt-side">
+                <div class="mt-searchrow">
+                    <span class="prompt-label">rx&gt;</span>
+                    <div class="mt-searchwrap">
+                        <input type="text" id="drugSearch" class="mt-search" autocomplete="off" spellcheck="false"
+                            placeholder="type a drug — ibuprofen…">
+                        <div class="sugg" id="drugSugg" hidden></div>
+                    </div>
+                </div>
+                <div class="mt-side-label">POPULAR QUICK PICKS</div>
+                <div class="mt-side-scroll"><div class="chip-row" id="drugQuick"></div></div>
+            </div>
+            <div class="mt-main">
+                <div class="mt-out" id="drugOut">
+                    <div class="mt-placeholder">
+                        <p class="mt-ph-title">[ DRUG → INFO LOOKUP ]</p>
+                        <p class="faint">Type a generic drug name in the left panel.</p>
+                        <p class="faint">You'll get its class, what it treats, and key cautions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLAN panel: left = patient + stock, right = the plan -->
+        <div class="mt-panel hidden" id="panelPlan">
+            <div class="mt-side">
+                <div class="mt-side-label">PATIENT SYMPTOMS — add all that apply</div>
+                <div class="mt-searchrow">
+                    <span class="prompt-label">pt&gt;</span>
+                    <div class="mt-searchwrap">
+                        <input type="text" id="planSearch" class="mt-search" autocomplete="off" spellcheck="false"
+                            placeholder="add a symptom — stomach pain, headache…">
+                        <div class="sugg" id="planSugg" hidden></div>
+                    </div>
+                </div>
+                <div class="plan-sel-wrap">
+                    <div class="chip-row plan-sel" id="planSel"></div>
+                </div>
+                <div class="pf-actions">
+                    <button type="button" id="btnPlanRun" class="btn">▚ RUN PLAN</button>
+                    <button type="button" id="btnPlanClear" class="btn btn-ghost">✕ CLEAR</button>
+                </div>
+
+                <div class="mt-side-label">CLINIC STOCK — check what's on the shelf</div>
+                <div class="mt-searchrow">
+                    <input type="text" id="stockFilter" class="mt-search" autocomplete="off" spellcheck="false"
+                        placeholder="filter drugs…">
+                </div>
+                <div class="stock-meta">
+                    <span id="stockMeta">—</span>
+                    <span class="pf-actions stock-btns">
+                        <button type="button" id="btnStockAll" class="mini">ALL OTC</button>
+                        <button type="button" id="btnStockClear" class="mini">NONE</button>
+                    </span>
+                </div>
+                <div class="mt-side-scroll stock-list" id="stockList"></div>
+            </div>
+            <div class="mt-main">
+                <div class="mt-out" id="planOut">
+                    <div class="mt-placeholder">
+                        <p class="mt-ph-title">[ PATIENT PLAN ]</p>
+                        <p class="faint">Add the patient's symptoms on the left and press ▚ RUN PLAN.</p>
+                        <p class="faint">Ticking the stock list keeps suggestions to what the clinic actually has.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stMode">SYMPTOM</span>
+            <span id="stInfo">informational reference — NOT medical advice</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

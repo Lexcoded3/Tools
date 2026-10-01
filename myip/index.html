@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MYIP — IP Recon Terminal</title>
+<meta name="description" content="MYIP: professional IP reconnaissance terminal. Check IP, detect VPN/proxy, WebRTC leaks, and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+</head>
+<body>
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@netsec: ~/recon — MYIP v2.0</span>
+            <span class="tb-tabs">
+                <button type="button" class="tab active" data-tab="info">▸ INFO</button>
+                <button type="button" class="tab" data-tab="speed">▸ SPEED</button>
+                <button type="button" class="tab" data-tab="history">▸ HISTORY</button>
+            </span>
+            <span class="tb-actions">
+                <button type="button" id="btnTheme" title="Toggle theme (T)">☀ LIGHT</button>
+                <button type="button" id="btnExport" title="Export results (E)">⬇ EXPORT</button>
+                <button type="button" id="btnRefresh" title="Refresh scan (R)">⟳ REFRESH</button>
+                <button type="button" id="btnFullscreen" title="Fullscreen (F)">⛶</button>
+            </span>
+        </div>
+
+        <!-- scanline sweep -->
+        <div class="scanline-sweep" id="scanSweep"></div>
+
+        <!-- terminal body -->
+        <div class="term" id="term">
+            <!-- ASCII banner -->
+            <pre class="ascii-banner" id="asciiBanner">
+ ██╗██████╗ ██╗   ██╗███████╗██████╗ ████████╗███████╗██████╗ ███╗   ███╗
+ ██║██╔══██╗╚██╗ ██╔╝██╔════╝██╔══██╗╚══██╔══╝██╔════╝██╔══██╗████╗ ████║
+ ██║██████╔╝ ╚████╔╝ █████╗  ██████╔╝   ██║   █████╗  ██████╔╝██╔████╔██║
+ ██║██╔═══╝   ╚██╔╝  ██╔══╝  ██╔══██╗   ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║
+ ██║██║        ██║   ███████╗██║  ██║   ██║   ███████╗██║  ██║██║ ╚═╝ ██║
+ ╚═╝╚═╝        ╚═╝   ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝</pre>
+
+            <div class="term-output" id="output" tabindex="0" aria-live="polite">
+                <div class="line dim">// initializing network recon…</div>
+            </div>
+
+            <div class="tab-panel active" data-panel="info">
+            <div class="split">
+                <!-- LEFT: IP data -->
+                <div class="split-left">
+                    <!-- IPv4 -->
+                    <div class="hero-card">
+                        <span class="hero-label">IPv4 ADDRESS</span>
+                        <div class="hero-ip-row">
+                            <span id="ip" class="hero-ip">scanning…</span>
+                            <button type="button" id="copyBtn" class="copy-btn" title="Copy IPv4 (C)">⧉</button>
+                        </div>
+                        <span class="hero-sub" id="latency">—</span>
+                        <span class="ip-class-badge" id="ipClass"></span>
+                    </div>
+
+                    <!-- IPv6 -->
+                    <div class="hero-card hero-card-v6">
+                        <span class="hero-label">IPv6 ADDRESS</span>
+                        <div class="hero-ip-row">
+                            <span id="ip6" class="hero-ip hero-ip-v6">scanning…</span>
+                            <button type="button" id="copyBtn6" class="copy-btn" title="Copy IPv6">⧉</button>
+                        </div>
+                    </div>
+
+                    <!-- IP formats -->
+                    <div class="ip-formats">
+                        <span class="panel-title">IP FORMATS</span>
+                        <div class="ip-fmt-row" data-copy="ipBin">
+                            <span class="ip-fmt-label">BIN</span>
+                            <span class="ip-fmt-val" id="ipBin">—</span>
+                            <span class="ip-fmt-copy">⧉</span>
+                        </div>
+                        <div class="ip-fmt-row" data-copy="ipHex">
+                            <span class="ip-fmt-label">HEX</span>
+                            <span class="ip-fmt-val" id="ipHex">—</span>
+                            <span class="ip-fmt-copy">⧉</span>
+                        </div>
+                        <div class="ip-fmt-row" data-copy="ipOct">
+                            <span class="ip-fmt-label">OCT</span>
+                            <span class="ip-fmt-val" id="ipOct">—</span>
+                            <span class="ip-fmt-copy">⧉</span>
+                        </div>
+                        <div class="ip-fmt-row" data-copy="ipDecimal">
+                            <span class="ip-fmt-label">DEC</span>
+                            <span class="ip-fmt-val" id="ipDecimal">—</span>
+                            <span class="ip-fmt-copy">⧉</span>
+                        </div>
+                    </div>
+
+                    <div class="data-grid" id="dataGrid">
+                        <div class="data-cell data-cell-country">
+                            <span class="data-key">COUNTRY</span>
+                            <span class="data-val data-val-flag"><img id="flag" class="flag-img" src="" alt=""><span id="country">—</span></span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">REGION</span>
+                            <span class="data-val" id="region">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">CITY</span>
+                            <span class="data-val" id="city">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">ZIP</span>
+                            <span class="data-val" id="zip">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">ISP</span>
+                            <span class="data-val" id="isp">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">ORG</span>
+                            <span class="data-val" id="org">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">AS</span>
+                            <span class="data-val" id="as">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">TIMEZONE</span>
+                            <span class="data-val" id="timezone">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">LAT</span>
+                            <span class="data-val" id="lat">—</span>
+                        </div>
+                        <div class="data-cell">
+                            <span class="data-key">LON</span>
+                            <span class="data-val" id="lon">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Security panel -->
+                    <div class="security-panel">
+                        <span class="panel-title">SECURITY ANALYSIS</span>
+                        <div class="sec-grid">
+                            <div class="sec-cell">
+                                <span class="sec-key">VPN / PROXY</span>
+                                <span class="sec-val" id="vpnStatus">—</span>
+                            </div>
+                            <div class="sec-cell">
+                                <span class="sec-key">TOR EXIT</span>
+                                <span class="sec-val" id="torStatus">—</span>
+                            </div>
+                            <div class="sec-cell">
+                                <span class="sec-key">REVERSE DNS</span>
+                                <span class="sec-val" id="reverseDns">—</span>
+                            </div>
+                            <div class="sec-cell">
+                                <span class="sec-key">WEBRTC LEAK</span>
+                                <span class="sec-val" id="webrtcStatus">—</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: map -->
+                <div class="split-right">
+                    <div class="map-card">
+                        <div class="map-header">
+                            <span class="map-label">LOCATION FEED</span>
+                            <button type="button" id="mapLink" class="map-link-btn hidden" title="Open full map in new tab">↗ OPEN MAP</button>
+                        </div>
+                        <div class="map-wrap">
+                            <div id="mapPlaceholder" class="map-placeholder">// awaiting coordinates…</div>
+                            <iframe id="mapFrame" class="map-frame hidden" loading="lazy"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div> <!-- /tab-panel info -->
+
+            <!-- SPEED tab -->
+            <div class="tab-panel" data-panel="speed">
+                <div class="speed-panel">
+                    <div class="speed-header">
+                        <span class="panel-title">SPEED &amp; LATENCY TEST</span>
+                        <span class="speed-grade" id="speedGradeTab">—</span>
+                        <button type="button" id="btnSpeedTestTab" class="map-link-btn" title="Run speed test (S)">▶ RUN</button>
+                    </div>
+                    <div class="speed-grid">
+                        <div class="speed-cell">
+                            <span class="sec-key">DOWNLOAD</span>
+                            <span class="speed-val" id="speedDownTab">—</span>
+                        </div>
+                        <div class="speed-cell">
+                            <span class="sec-key">UPLOAD</span>
+                            <span class="speed-val" id="speedUpTab">—</span>
+                        </div>
+                        <div class="speed-cell">
+                            <span class="sec-key">JITTER</span>
+                            <span class="speed-val" id="speedJitterTab">—</span>
+                        </div>
+                        <div class="speed-cell">
+                            <span class="sec-key">LATENCY</span>
+                            <span class="speed-val" id="speedLatencyTab">—</span>
+                        </div>
+                    </div>
+                    <div class="speed-phase" id="speedPhaseTab">// idle — press RUN to start</div>
+                    <div class="speed-ping-bar" id="pingBarTab">
+                        <div class="speed-ping-fill" id="pingFillTab"></div>
+                    </div>
+                    <div class="speed-servers" id="speedServersTab"></div>
+                </div>
+            </div>
+
+            <!-- HISTORY tab -->
+            <div class="tab-panel" data-panel="history">
+                <div class="history-panel history-panel-full">
+                    <div class="history-header">
+                        <span class="panel-title">SCAN HISTORY</span>
+                        <button type="button" id="btnClearHistoryTab" class="map-link-btn" title="Clear history">✕ CLEAR</button>
+                    </div>
+                    <div class="history-list" id="historyListTab">
+                        <div class="history-empty">// no scan history yet</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- keyboard hints -->
+            <div class="kbd-hints">
+                <span class="kbd">R</span> refresh
+                <span class="kbd">C</span> copy IP
+                <span class="kbd">E</span> export
+                <span class="kbd">T</span> theme
+                <span class="kbd">F</span> fullscreen
+                <span class="kbd">S</span> speed test
+            </div>
+
+            <!-- error display -->
+            <div id="error" class="err-line hidden"></div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stEngine">ENGINE: ip-api.com</span>
+            <span id="stStatus">STATUS: LOADING</span>
+            <span class="st-quality" id="stQuality">
+                <span class="bars"><i class="bar"></i><i class="bar"></i><i class="bar"></i><i class="bar"></i></span>
+                <span id="stQualityText">—</span>
+            </span>
+            <span id="stJobs">scans: 0</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

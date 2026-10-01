@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QRTERM — Encode &amp; Decode QR Codes</title>
+<meta name="description" content="QRTERM: generate QR codes from text/URLs/WiFi configs and decode QR codes from your camera or image files. Client-side, free, no key.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔲</text></svg>">
+</head>
+<body data-theme="green">
+
+<div class="crt-bezel">
+    <div class="crt-screen" id="screen">
+
+        <!-- title bar -->
+        <div class="titlebar">
+            <span class="tb-dots"><i></i><i></i><i></i></span>
+            <span class="tb-title">root@qrterm: ~/scanner — QRTERM v1.0</span>
+            <span class="tb-actions">
+                <button type="button" id="btnTabGen" class="tabbtn active" title="Generate QR codes">⌨ ENCODE</button>
+                <button type="button" id="btnTabDec" class="tabbtn" title="Decode QR codes">📷 DECODE</button>
+            </span>
+        </div>
+
+        <!-- ENCODE panel -->
+        <div class="qr-panel" id="panelGen">
+            <div class="qr-form">
+                <label class="qr-field">
+                    <span class="qr-label">MODE</span>
+                    <select id="genType">
+                        <option value="text" selected>TEXT</option>
+                        <option value="url">URL</option>
+                        <option value="wifi">WIFI</option>
+                        <option value="email">EMAIL</option>
+                        <option value="tel">TEL</option>
+                        <option value="sms">SMS</option>
+                    </select>
+                </label>
+
+                <label class="qr-field qr-wide">
+                    <span class="qr-label">DATA</span>
+                    <textarea id="genData" rows="3" spellcheck="false" placeholder="Type something — then press ENTER or hit GENERATE..."></textarea>
+                </label>
+
+                <div class="qr-wifi hidden" id="wifiRow">
+                    <label class="qr-field"><span class="qr-label">SSID</span><input type="text" id="wifiSsid" placeholder="network name"></label>
+                    <label class="qr-field"><span class="qr-label">KEY</span><input type="text" id="wifiKey" placeholder="password"></label>
+                    <label class="qr-field"><span class="qr-label">SEC</span>
+                        <select id="wifiSec">
+                            <option value="WPA" selected>WPA/WPA2</option>
+                            <option value="WEP">WEP</option>
+                            <option value="nopass">NONE</option>
+                        </select>
+                    </label>
+                </div>
+
+                <label class="qr-field"><span class="qr-label">SIZE</span>
+                    <select id="genSize">
+                        <option value="256">256</option>
+                        <option value="384">384</option>
+                        <option value="512" selected>512</option>
+                        <option value="768">768</option>
+                        <option value="1024">1024</option>
+                    </select>
+                </label>
+
+                <label class="qr-field ctl-check"><input type="checkbox" id="genMargin"> QUIET ZONE</label>
+
+                <div class="qr-actions">
+                    <button type="button" id="btnGen" class="btn">▚ GENERATE</button>
+                    <button type="button" id="btnDl" class="btn btn-ghost">⤓ SAVE PNG</button>
+                </div>
+            </div>
+
+            <div class="qr-out">
+                <div class="qr-canvas-wrap" id="qrCanvasWrap">
+                    <div class="qr-placeholder" id="qrPlaceholder">[ QR OUTPUT // AWAITING DATA ]</div>
+                    <canvas id="qrCanvas" class="hidden"></canvas>
+                </div>
+                <div class="qr-out-meta faint" id="qrOutMeta">—</div>
+            </div>
+        </div>
+
+        <!-- DECODE panel -->
+        <div class="qr-panel hidden" id="panelDec">
+            <div class="qr-form">
+                <button type="button" id="btnCam" class="btn">🎥 CAMERA</button>
+                <button type="button" id="btnImg" class="btn btn-ghost">⏏ FROM IMAGE</button>
+                <p class="faint" id="camHint" style="margin-top:10px">Camera decoding is client-side via jsQR — pointed at a QR code it decodes continuously.</p>
+                <div class="qr-cam hidden" id="camWrap">
+                    <video id="camVideo" playsinline muted></video>
+                    <canvas id="camScan" class="hidden"></canvas>
+                    <div class="cam-box" id="camBox"></div>
+                </div>
+                <p class="faint" id="decHint" style="margin-top:10px">Decoded payload appears in the terminal window below.</p>
+            </div>
+            <div class="qr-out">
+                <div class="qr-decode-out" id="decOut"><span class="faint">[ DECODED PAYLOAD // NONE ]</span></div>
+                <div class="qr-out-meta faint" id="decMeta">—</div>
+            </div>
+        </div>
+
+        <!-- status bar -->
+        <div class="statusbar" id="statusbar">
+            <span id="stMode">ENCODE</span>
+            <span id="stInfo">qr code forge · 100% client-side</span>
+            <span id="stClock">--:--:--</span>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" hidden>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

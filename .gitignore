@@ -1,0 +1,10 @@
+# Runtime artifacts, data outputs and local-only files
+node_modules/
+*.log
+data/
+jobs/
+.env
+*.exe
+*.swm
+key.json
+.ytprofile/
