@@ -24,10 +24,15 @@ namespace WinUSB
 
         // Software list
         ListBox lstSoftware;
-        Button btnAddSw, btnRemoveSw, btnUpSw, btnDownSw;
+        Button btnAddSw, btnRemoveSw, btnUpSw, btnDownSw, btnPreview;
         Label lblSwKind;
         TextBox txtArgs;
         bool updatingArgs;
+
+        // Office (optional)
+        Button btnAddOffice, btnRemoveOffice;
+        Label lblOfficeInfo;
+        OfficeSetup office;
 
         // Build
         Button btnBuild;
@@ -50,8 +55,8 @@ namespace WinUSB
             Text = "ByteUSB - Windows Setup USB + Auto-Install Software";
             Font = new Font("Segoe UI", 9F);
             StartPosition = FormStartPosition.CenterScreen;
-            MinimumSize = new Size(760, 640);
-            Size = new Size(820, 700);
+            MinimumSize = new Size(760, 720);
+            Size = new Size(820, 760);
 
             // ---- ISO row ----
             Label l1 = new Label { Text = "1. Windows ISO", AutoSize = true, Location = new Point(12, 12), ForeColor = Color.DimGray, Font = new Font(Font, FontStyle.Bold) };
@@ -86,6 +91,8 @@ namespace WinUSB
             btnUpSw.Click += delegate { MoveSelected(-1); };
             btnDownSw = new Button { Text = "Move down", Location = new Point(486, 300), Width = 130, Enabled = false };
             btnDownSw.Click += delegate { MoveSelected(1); };
+            btnPreview = new Button { Text = "Preview script...", Location = new Point(486, 336), Width = 130 };
+            btnPreview.Click += BtnPreview_Click;
 
             lblSwKind = new Label { Text = "Detected type: -", Location = new Point(16, 398), AutoSize = true, ForeColor = Color.DarkSlateGray };
 
@@ -94,20 +101,30 @@ namespace WinUSB
             txtArgs.TextChanged += TxtArgs_TextChanged;
             Label la2 = new Label { Text = "Edit per installer. Defaults: /S (NSIS), /VERYSILENT (Inno), /qn (MSI).", AutoSize = true, Location = new Point(16, 424), ForeColor = Color.Gray };
 
+            // ---- Office (optional) ----
+            Label l4 = new Label { Text = "4. Microsoft Office (optional) - installs from your Office ISO", AutoSize = true, Location = new Point(12, 446), ForeColor = Color.DimGray, Font = new Font(Font, FontStyle.Bold) };
+
+            btnAddOffice = new Button { Text = "Add Office ISO...", Location = new Point(16, 466), Width = 130 };
+            btnAddOffice.Click += BtnAddOffice_Click;
+            lblOfficeInfo = new Label { Text = "(none - optional)", Location = new Point(156, 470), Width = 520, ForeColor = Color.Gray };
+            btnRemoveOffice = new Button { Text = "Remove", Location = new Point(700, 464), Width = 90, Enabled = false };
+            btnRemoveOffice.Click += delegate { office = null; UpdateOfficeInfo(); };
+
             // ---- Build ----
-            btnBuild = new Button { Text = "BUILD USB", Location = new Point(16, 452), Width = 160, Height = 36, BackColor = Color.FromArgb(0, 120, 215), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            btnBuild = new Button { Text = "BUILD USB", Location = new Point(16, 506), Width = 160, Height = 36, BackColor = Color.FromArgb(0, 120, 215), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
             btnBuild.Click += BtnBuild_Click;
 
-            prog = new ProgressBar { Location = new Point(190, 456), Width = 400, Height = 28 };
-            lblStatus = new Label { Location = new Point(600, 456), AutoSize = true, Text = "Ready." };
+            prog = new ProgressBar { Location = new Point(190, 510), Width = 400, Height = 28 };
+            lblStatus = new Label { Location = new Point(600, 510), AutoSize = true, Text = "Ready." };
 
-            txtLog = new TextBox { Location = new Point(16, 496), Width = 770, Height = 140, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Color.White, Font = new Font("Consolas", 8.5F) };
+            txtLog = new TextBox { Location = new Point(16, 550), Width = 770, Height = 150, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Color.White, Font = new Font("Consolas", 8.5F) };
 
             Controls.AddRange(new Control[] {
                 l1, txtIso, btnBrowseIso, lblIsoInfo,
                 l2, cboDisks, btnRefreshDisks, rbFat32, rbNtfs, txtLabel,
-                l3, lstSoftware, btnAddSw, btnRemoveSw, btnUpSw, btnDownSw,
+                l3, lstSoftware, btnAddSw, btnRemoveSw, btnUpSw, btnDownSw, btnPreview,
                 lblSwKind, la, txtArgs, la2,
+                l4, btnAddOffice, lblOfficeInfo, btnRemoveOffice,
                 btnBuild, prog, lblStatus, txtLog
             });
 
@@ -135,8 +152,7 @@ namespace WinUSB
             try
             {
                 FileInfo fi = new FileInfo(path);
-                string cached = Directory.Exists(UsbBuilder.ExtractedIsoPath(path)) ? "  (extraction cached - will reuse)" : "";
-                lblIsoInfo.Text = fi.Name + " - " + UsbDisk.FormatSize(fi.Length) + cached;
+                lblIsoInfo.Text = fi.Name + " - " + UsbDisk.FormatSize(fi.Length);
             }
             catch { lblIsoInfo.Text = ""; }
         }
@@ -258,6 +274,89 @@ namespace WinUSB
 
         // ------------------------------------------------------------------
 
+        void BtnAddOffice_Click(object sender, EventArgs e)
+        {
+            using (OfficeDialog dlg = new OfficeDialog(office))
+            {
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    office = dlg.Result;
+                    UpdateOfficeInfo();
+                }
+            }
+        }
+
+        void UpdateOfficeInfo()
+        {
+            if (office == null)
+            {
+                lblOfficeInfo.Text = "(none - optional)";
+                lblOfficeInfo.ForeColor = Color.Gray;
+                btnRemoveOffice.Enabled = false;
+            }
+            else
+            {
+                lblOfficeInfo.Text = Path.GetFileName(office.IsoPath) + "  -  " + office.ProductId +
+                    " (" + office.Language + ", " + office.Edition + "-bit)";
+                lblOfficeInfo.ForeColor = Color.DarkSlateGray;
+                btnRemoveOffice.Enabled = true;
+            }
+        }
+
+        // ------------------------------------------------------------------
+
+        void BtnPreview_Click(object sender, EventArgs e)
+        {
+            if (software.Count == 0 && office == null)
+            {
+                MessageBox.Show("Add at least one installer (or an Office ISO) first - the preview\n" +
+                    "shows how everything will be installed after Windows setup.",
+                    "WinUSB", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string script = UsbBuilder.GenerateSetupCompleteCmd(software, office);
+
+            Form dlg = new Form();
+            dlg.Text = "SetupComplete.cmd - preview (reflects the current list and arguments)";
+            dlg.Font = new Font("Segoe UI", 9F);
+            dlg.StartPosition = FormStartPosition.CenterParent;
+            dlg.Size = new Size(760, 560);
+            dlg.MinimizeBox = false;
+            dlg.MaximizeBox = false;
+            dlg.ShowInTaskbar = false;
+
+            TextBox txt = new TextBox
+            {
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Both,
+                WordWrap = false,
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Font = new Font("Consolas", 9F),
+                Text = script
+            };
+
+            Panel bottom = new Panel { Dock = DockStyle.Bottom, Height = 40 };
+            Button btnCopy = new Button { Text = "Copy", Location = new Point(552, 8), Width = 84 };
+            btnCopy.Click += delegate
+            {
+                try { Clipboard.SetText(script); }
+                catch (Exception) { MessageBox.Show(dlg, "Clipboard is busy - try again.", "WinUSB"); }
+            };
+            Button btnClose = new Button { Text = "Close", Location = new Point(644, 8), Width = 84 };
+            btnClose.Click += delegate { dlg.Close(); };
+            bottom.Controls.Add(btnCopy);
+            bottom.Controls.Add(btnClose);
+
+            dlg.Controls.Add(txt);
+            dlg.Controls.Add(bottom);
+            dlg.ShowDialog(this);
+        }
+
+        // ------------------------------------------------------------------
+
         void BtnBuild_Click(object sender, EventArgs e)
         {
             if (building) return;
@@ -276,11 +375,16 @@ namespace WinUSB
                 return;
             }
 
+            string extraItems = "";
+            if (software.Count > 0)
+                extraItems += " plus " + software.Count + " selected installer" + (software.Count == 1 ? "" : "s");
+            if (office != null)
+                extraItems += extraItems.Length > 0 ? " and Microsoft Office" : " plus Microsoft Office";
+
             string warning =
                 "This will ERASE EVERYTHING on:\n\n  " + target.ToString() + "\n\n" +
                 "The whole disk will be repartitioned and written with Windows setup files" +
-                (software.Count > 0 ? " plus your " + software.Count + " selected installers." : ".") +
-                "\n\nContinue?";
+                extraItems + ".\n\nContinue?";
             if (MessageBox.Show(warning, "Confirm - All data will be destroyed",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
                 return;
@@ -288,6 +392,7 @@ namespace WinUSB
             IsoSelection sel = new IsoSelection();
             sel.IsoPath = iso;
             sel.Software = software;
+            sel.Office = office;
 
             bool fat32 = rbFat32.Checked;
             string label = string.IsNullOrWhiteSpace(txtLabel.Text) ? "WINUSB" : txtLabel.Text.Trim();
@@ -298,7 +403,7 @@ namespace WinUSB
 
             ThreadPool.QueueUserWorkItem(delegate
             {
-                BuildResult result = UsbBuilder.Build(sel, target, label, fat32, software.Count > 0);
+                BuildResult result = UsbBuilder.Build(sel, target, label, fat32);
                 BeginInvoke((MethodInvoker)delegate
                 {
                     building = false;

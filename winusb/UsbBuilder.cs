@@ -43,6 +43,7 @@ namespace WinUSB
     {
         public string IsoPath = "";
         public List<SoftwareItem> Software = new List<SoftwareItem>();
+        public OfficeSetup Office; // optional - null when no Office ISO was picked
     }
 
     public class BuildResult
@@ -90,11 +91,21 @@ namespace WinUSB
             }
         }
 
-        // robocopy exit codes 0-7 are success (bitmask: copies, extras, mismatches, failures<8).
-        static void RunRobocopy(string source, string dest, string extraArgs)
+        // Quote a path for a child-process command line ONLY if it contains a
+        // space - and never quote a path ending in '\'. A trailing backslash
+        // before a closing quote is parsed as an escaped quote (\"), which
+        // mangles the argument (the classic robocopy ERROR 123 source).
+        static string Q(string path)
         {
-            using (Process p = Process.Start(MakePsi("robocopy.exe",
-                "\"" + source + "\" \"" + dest + "\" " + extraArgs)))
+            if (path.IndexOf(' ') < 0 || path.EndsWith("\\")) return path;
+            return "\"" + path + "\"";
+        }
+
+        // robocopy exit codes 0-7 are success (bit flags; >=8 means failures).
+        static void RunRobocopy(string source, string dest)
+        {
+            string args = Q(source) + " " + Q(dest) + " /E /R:2 /W:2 /NFL /NDL /NJH /NJS /NP";
+            using (Process p = Process.Start(MakePsi("robocopy.exe", args)))
             {
                 string stdout = p.StandardOutput.ReadToEnd();
                 p.StandardError.ReadToEnd();
@@ -126,63 +137,61 @@ namespace WinUSB
 
             System.Management.ManagementScope scope = new System.Management.ManagementScope("root\\cimv2");
             scope.Connect();
+
+            // Map partition -> disk index, then logical drive -> partition,
+            // so each physical disk ends up with its mounted drive letters.
+            Dictionary<string, string> diskByPartition = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            using (System.Management.ManagementObjectSearcher parts = new System.Management.ManagementObjectSearcher(scope,
+                new System.Management.ObjectQuery("SELECT DeviceID, DiskIndex FROM Win32_DiskPartition")))
             {
+                foreach (System.Management.ManagementObject part in parts.Get())
+                    diskByPartition[part["DeviceID"].ToString()] = part["DiskIndex"].ToString();
+            }
 
-                // Map partition -> disk index, then logical drive -> partition,
-                // so each physical disk ends up with its mounted drive letters.
-                Dictionary<string, string> diskByPartition = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                using (System.Management.ManagementObjectSearcher parts = new System.Management.ManagementObjectSearcher(scope,
-                    new System.Management.ObjectQuery("SELECT DeviceID, DiskIndex FROM Win32_DiskPartition")))
+            Dictionary<string, List<string>> lettersByDisk = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            using (System.Management.ManagementObjectSearcher rels = new System.Management.ManagementObjectSearcher(scope,
+                new System.Management.ObjectQuery("SELECT Antecedent, Dependent FROM Win32_LogicalDiskToPartition")))
+            {
+                foreach (System.Management.ManagementObject rel in rels.Get())
                 {
-                    foreach (System.Management.ManagementObject part in parts.Get())
-                        diskByPartition[part["DeviceID"].ToString()] = part["DiskIndex"].ToString();
-                }
-
-                Dictionary<string, List<string>> lettersByDisk = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-                using (System.Management.ManagementObjectSearcher rels = new System.Management.ManagementObjectSearcher(scope,
-                    new System.Management.ObjectQuery("SELECT Antecedent, Dependent FROM Win32_LogicalDiskToPartition")))
-                {
-                    foreach (System.Management.ManagementObject rel in rels.Get())
+                    string antecedent = GetWmiRef(rel["Antecedent"]);
+                    string dependent = GetWmiRef(rel["Dependent"]);
+                    string diskIndex;
+                    if (antecedent != null && dependent != null && diskByPartition.TryGetValue(antecedent, out diskIndex))
                     {
-                        string antecedent = GetWmiRef(rel["Antecedent"]);
-                        string dependent = GetWmiRef(rel["Dependent"]);
-                        string diskIndex;
-                        if (antecedent != null && dependent != null && diskByPartition.TryGetValue(antecedent, out diskIndex))
+                        string letter = dependent.Replace(":", "");
+                        List<string> list;
+                        if (!lettersByDisk.TryGetValue(diskIndex, out list))
                         {
-                            string letter = dependent.Replace(":", "");
-                            List<string> list;
-                            if (!lettersByDisk.TryGetValue(diskIndex, out list))
-                            {
-                                list = new List<string>();
-                                lettersByDisk[diskIndex] = list;
-                            }
-                            if (!list.Contains(letter, StringComparer.OrdinalIgnoreCase)) list.Add(letter);
+                            list = new List<string>();
+                            lettersByDisk[diskIndex] = list;
                         }
+                        if (!list.Contains(letter, StringComparer.OrdinalIgnoreCase)) list.Add(letter);
                     }
                 }
+            }
 
-                using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(scope,
-                    new System.Management.ObjectQuery("SELECT DeviceID, Model, Size, InterfaceType, MediaType FROM Win32_DiskDrive")))
+            using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(scope,
+                new System.Management.ObjectQuery("SELECT DeviceID, Model, Size, InterfaceType, MediaType FROM Win32_DiskDrive")))
+            {
+                foreach (System.Management.ManagementObject drive in searcher.Get())
                 {
-                    foreach (System.Management.ManagementObject drive in searcher.Get())
-                    {
-                        UsbDisk d = new UsbDisk();
-                        d.DiskNumber = int.Parse(drive["DeviceID"].ToString().Replace("\\\\.\\PHYSICALDRIVE", ""));
-                        d.Model = drive["Model"].ToString().Trim();
-                        ulong size;
-                        ulong.TryParse(drive["Size"].ToString(), out size);
-                        d.SizeBytes = (long)size;
-                        string iface = drive["InterfaceType"] == null ? "" : drive["InterfaceType"].ToString();
-                        string media = drive["MediaType"] == null ? "" : drive["MediaType"].ToString();
-                        d.IsUsb = iface.Equals("USB", StringComparison.OrdinalIgnoreCase) ||
-                                  media.IndexOf("removable", StringComparison.OrdinalIgnoreCase) >= 0;
+                    UsbDisk d = new UsbDisk();
+                    d.DiskNumber = int.Parse(drive["DeviceID"].ToString().Replace("\\\\.\\PHYSICALDRIVE", ""));
+                    d.Model = drive["Model"].ToString().Trim();
+                    ulong size;
+                    ulong.TryParse(drive["Size"].ToString(), out size);
+                    d.SizeBytes = (long)size;
+                    string iface = drive["InterfaceType"] == null ? "" : drive["InterfaceType"].ToString();
+                    string media = drive["MediaType"] == null ? "" : drive["MediaType"].ToString();
+                    d.IsUsb = iface.Equals("USB", StringComparison.OrdinalIgnoreCase) ||
+                              media.IndexOf("removable", StringComparison.OrdinalIgnoreCase) >= 0;
 
-                        List<string> letters;
-                        if (lettersByDisk.TryGetValue(d.DiskNumber.ToString(), out letters))
-                            d.DriveLetters = letters;
+                    List<string> letters;
+                    if (lettersByDisk.TryGetValue(d.DiskNumber.ToString(), out letters))
+                        d.DriveLetters = letters;
 
-                        disks.Add(d);
-                    }
+                    disks.Add(d);
                 }
             }
 
@@ -200,63 +209,30 @@ namespace WinUSB
         }
 
         // ------------------------------------------------------------------
-        // ISO staging
+        // ISO mounting
         // ------------------------------------------------------------------
 
-        public static string ExtractedIsoPath(string isoPath)
+        // Mounts the ISO and returns the volume root like "E:\".
+        // Strict validation: accepts exactly one letter A-Z and nothing else,
+        // so wrapper/AV noise can never be mistaken for a drive letter (the
+        // bug behind robocopy ERROR 123 with a mangled source path).
+        static string MountIso(string isoPath)
         {
-            // Deterministic cache folder: %LOCALAPPDATA%\WinUSB\iso\<name>_<len>
-            string name = Path.GetFileNameWithoutExtension(isoPath);
-            long len = new FileInfo(isoPath).Length;
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "WinUSB", "iso", name + "_" + len);
-        }
+            string output = RunCapture("powershell.exe",
+                "-NoProfile -ExecutionPolicy Bypass -Command " +
+                "\"(Mount-DiskImage -ImagePath '" + isoPath.Replace("'", "''") +
+                "' -PassThru | Get-Volume).DriveLetter\"");
 
-        static void ExtractIso(string isoPath, string stageDir)
-        {
-            if (Directory.Exists(stageDir))
-            {
-                if (File.Exists(Path.Combine(stageDir, ".winusb_complete")))
-                {
-                    Report("Using cached ISO extraction.", 5);
-                    return;
-                }
-                Directory.Delete(stageDir, true);
-            }
-            Directory.CreateDirectory(stageDir);
+            output = output == null ? "" : output.Trim().ToUpperInvariant();
 
-            Report("Mounting ISO...", 2);
-            string letter = MountAndGetLetter(isoPath);
-            try
-            {
-                Report("Copying ISO contents (robocopy)...", 4);
-                RunRobocopy(letter + ":\\", stageDir, "/E /NFL /NDL /NJH /NJS /NP /R:2 /W:2");
-            }
-            finally
-            {
-                TryDismount(isoPath);
-            }
+            if (output.Length == 1 && output[0] >= 'A' && output[0] <= 'Z')
+                return output + ":\\";
 
-            if (!File.Exists(Path.Combine(stageDir, "setup.exe")) &&
-                !File.Exists(Path.Combine(stageDir, "sources", "setup.exe")))
-            {
-                throw new InvalidOperationException(
-                    "The mounted image does not look like a Windows install ISO (no setup.exe found).");
-            }
-
-            File.WriteAllText(Path.Combine(stageDir, ".winusb_complete"), "ok");
-            Report("ISO extracted.", 8);
-        }
-
-        static string MountAndGetLetter(string isoPath)
-        {
-            string output = RunCapture("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command " +
-                "(Mount-DiskImage -ImagePath '" + isoPath.Replace("'", "''") + "' -PassThru | Get-Volume).DriveLetter");
-            output = (output ?? "").Trim();
-            if (output.Length < 1)
-                throw new InvalidOperationException("Could not mount the ISO as a disk image.");
-            return output.Substring(0, 1);
+            throw new InvalidOperationException(
+                "Could not mount the ISO as a drive. Mount-DiskImage returned unexpected output:\n" +
+                (output.Length == 0
+                    ? "(no output at all - the PowerShell disk-image service may be blocked by a sandbox or security software)"
+                    : output));
         }
 
         static void TryDismount(string isoPath)
@@ -264,7 +240,7 @@ namespace WinUSB
             try
             {
                 Run("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command " +
-                    "Dismount-DiskImage -ImagePath '" + isoPath.Replace("'", "''") + "' | Out-Null");
+                    "\"Dismount-DiskImage -ImagePath '" + isoPath.Replace("'", "''") + "' | Out-Null\"");
             }
             catch { }
         }
@@ -273,30 +249,83 @@ namespace WinUSB
         // Build pipeline
         // ------------------------------------------------------------------
 
-        public static BuildResult Build(IsoSelection selection, UsbDisk target, string volumeLabel,
-            bool fat32, bool includeSoftware)
+        public static BuildResult Build(IsoSelection selection, UsbDisk target, string volumeLabel, bool fat32)
         {
             BuildResult result = new BuildResult();
+            bool mounted = false;
+            bool officeMounted = false;
+            string officeRoot = null;
+            OfficeSetup office = selection.Office;
             try
             {
-                string isoPath = selection.IsoPath;
-                string stage = ExtractedIsoPath(isoPath);
+                string isoPath = Path.GetFullPath(selection.IsoPath);
+                if (!File.Exists(isoPath))
+                    throw new InvalidOperationException("ISO file not found: " + isoPath);
 
-                ExtractIso(isoPath, stage);
+                // Validate BEFORE touching the USB stick. If the ISO can't be
+                // mounted or isn't a Windows ISO, we fail with the disk intact.
+                Report("Mounting ISO (validating before any disk changes)...", 0);
+                string isoRoot = MountIso(isoPath);
+                mounted = true;
+                Report("ISO mounted at " + isoRoot, 5);
 
-                if (includeSoftware && selection.Software.Count > 0)
+                if (!File.Exists(Path.Combine(isoRoot, "setup.exe")) &&
+                    !File.Exists(Path.Combine(isoRoot, "sources", "setup.exe")))
                 {
-                    Report("Staging software payload ($OEM$)...", 10);
-                    WriteOemPayload(stage, selection.Software, result);
+                    throw new InvalidOperationException(
+                        isoRoot + " does not look like a Windows install ISO (no setup.exe found). " +
+                        "Nothing has been written to the USB disk.");
                 }
 
-                FormatUsb(target, volumeLabel, fat32, stage, result);
+                // Optional Office ISO: mounted and validated the same way,
+                // still before ANY change to the USB disk.
+                if (office != null)
+                {
+                    string officeIso = Path.GetFullPath(office.IsoPath);
+                    if (!File.Exists(officeIso))
+                        throw new InvalidOperationException("Office ISO file not found: " + officeIso);
+
+                    Report("Mounting Office ISO (validating before any disk changes)...", 2);
+                    officeRoot = MountIso(officeIso);
+                    officeMounted = true;
+
+                    if (!OfficeSupport.LooksLikeOfficeIso(officeRoot))
+                        throw new InvalidOperationException(
+                            officeRoot + " does not look like an Office ISO (no setup.exe at its root). " +
+                            "Nothing has been written to the USB disk.");
+
+                    if (fat32) EnsureFat32Compatible(officeRoot, "The Office ISO");
+                }
+
+                if (fat32 && target.SizeBytes > 32L * 1024 * 1024 * 1024)
+                    throw new InvalidOperationException(
+                        "FAT32 cannot be used on disks larger than 32 GB (this disk is " +
+                        UsbDisk.FormatSize(target.SizeBytes) + "). Choose NTFS instead (legacy BIOS boot only), " +
+                        "or use a stick of 32 GB or less for UEFI + BIOS compatibility.");
+
+                // Fails BEFORE formatting if Windows ISO + Office + installers
+                // cannot possibly fit on the stick.
+                EnsureSpace(isoRoot, officeRoot, selection.Software, target);
+
+                FormatUsb(target, volumeLabel, fat32, isoRoot, result);
 
                 string usbRoot = GetVolumeRootByLabel(SanitizeLabel(volumeLabel));
                 if (usbRoot == null)
-                    throw new InvalidOperationException("Could not find the newly formatted volume by label.");
+                    throw new InvalidOperationException("Formatted volume not found after diskpart (looked for label " + SanitizeLabel(volumeLabel) + ").");
 
-                CopyBootFiles(stage, usbRoot, fat32, result);
+                CopyFiles(isoRoot, usbRoot, fat32, result);
+
+                if (officeRoot != null)
+                {
+                    Report("Copying Office installation files to USB (this takes a few minutes)...", 91);
+                    CopyOfficePayload(officeRoot, usbRoot, office, result);
+                }
+
+                if (selection.Software.Count > 0 || office != null)
+                {
+                    Report("Writing software payload ($OEM$)...", 97);
+                    WriteOemPayload(usbRoot, selection.Software, office, result);
+                }
 
                 Report("Done! USB is ready.", 100);
                 result.Success = true;
@@ -306,6 +335,11 @@ namespace WinUSB
                 result.Success = false;
                 result.Error = ex.Message;
                 Report("FAILED: " + ex.Message, -1);
+            }
+            finally
+            {
+                if (mounted) TryDismount(selection.IsoPath);
+                if (officeMounted && office != null) TryDismount(office.IsoPath);
             }
             return result;
         }
@@ -325,15 +359,9 @@ namespace WinUSB
             return sb.ToString();
         }
 
-        static void FormatUsb(UsbDisk disk, string label, bool fat32, string stage, BuildResult result)
+        static void FormatUsb(UsbDisk disk, string label, bool fat32, string isoRoot, BuildResult result)
         {
             Report("Cleaning and repartitioning " + disk.Model + " (all data will be lost)...", 15);
-
-            if (fat32 && disk.SizeBytes > 32L * 1024 * 1024 * 1024)
-                throw new InvalidOperationException(
-                    "FAT32 cannot be used on disks larger than 32 GB (this disk is " +
-                    UsbDisk.FormatSize(disk.SizeBytes) + "). Choose NTFS instead (legacy BIOS boot only), " +
-                    "or use a stick of 32 GB or less for UEFI + BIOS compatibility.");
 
             string safeLabel = SanitizeLabel(label);
             string script =
@@ -355,7 +383,7 @@ namespace WinUSB
             // Makes the stick bootable on both UEFI (via bootmgr/EFI folder)
             // and legacy BIOS (via MBR boot code + active partition).
             // bootsect.exe ships inside the ISO (boot\bootsect.exe), not on PATH.
-            string bootsect = Path.Combine(stage, "boot", "bootsect.exe");
+            string bootsect = Path.Combine(isoRoot, "boot", "bootsect.exe");
             if (File.Exists(bootsect))
             {
                 Run(bootsect, "/nt60 " + root + ": /force /mbr");
@@ -401,47 +429,183 @@ namespace WinUSB
         }
 
         // ------------------------------------------------------------------
-        // Copy + WIM splitting
+        // Copy + WIM handling
         // ------------------------------------------------------------------
 
-        static void CopyBootFiles(string stage, string usbRoot, bool fat32, BuildResult result)
+        static void CopyFiles(string isoRoot, string usbRoot, bool fat32, BuildResult result)
         {
-            string wimFile = Path.Combine(stage, "sources", "install.wim");
-            string esdFile = Path.Combine(stage, "sources", "install.esd");
-            string bigImage = File.Exists(wimFile) ? wimFile : (File.Exists(esdFile) ? esdFile : null);
+            string usbDest = usbRoot + ":\\";   // drive root, no spaces -> passed unquoted
 
+            string bigImage = FindBigImage(isoRoot);
+            long bigSize = 0;
+            bool tooBig = false;
             if (bigImage != null)
             {
-                long size = new FileInfo(bigImage).Length;
-                bool tooBigForFat32 = size > 3900L * 1024 * 1024; // margin under 4 GiB
-
-                if (tooBigForFat32 && fat32)
-                {
-                    Report("Splitting " + Path.GetFileName(bigImage) + " (" +
-                        UsbDisk.FormatSize(size) + ") into .swm chunks for FAT32...", 35);
-                    SplitWim(bigImage, Path.Combine(stage, "sources"));
-                    result.Warnings.Add(
-                        Path.GetFileName(bigImage) + " was larger than 4 GB and was split into install.swm chunks. " +
-                        "Windows setup picks these up automatically.");
-                }
-                else if (tooBigForFat32 && !fat32)
-                {
-                    result.Warnings.Add(
-                        Path.GetFileName(bigImage) + " is larger than 4 GB; NTFS was selected so no split was needed.");
-                }
+                bigSize = new FileInfo(bigImage).Length;
+                tooBig = bigSize > 3900L * 1024 * 1024;
             }
 
-            Report("Copying Windows setup files to USB...", 50);
-            RunRobocopy(stage, usbRoot, "/E /NFL /NDL /NJH /NJS /NP /R:2 /W:2 /XF .winusb_complete");
-            Report("Setup files copied.", 90);
+            // On FAT32 an oversized WIM must never reach the normal copy pass -
+            // it cannot exist on FAT32 at all, so exclude it and copy .swm
+            // chunks instead. On NTFS the regular copy handles it fine.
+            bool excludeBig = tooBig && fat32;
+
+            Report("Copying Windows setup files to USB...", 40);
+            string excludeArgs = excludeBig ? " /XF " + bigImage : "";
+            RunRobocopyArgs(isoRoot, usbDest, excludeArgs);
+
+            if (excludeBig)
+            {
+                Report("Splitting " + Path.GetFileName(bigImage) + " (" +
+                    UsbDisk.FormatSize(bigSize) + ") into .swm chunks for FAT32...", 70);
+
+                string swmStaging = Path.Combine(Path.GetTempPath(), "winusb_split");
+                if (Directory.Exists(swmStaging)) Directory.Delete(swmStaging, true);
+                Directory.CreateDirectory(swmStaging);
+
+                try
+                {
+                    Run("dism.exe", "/Split-Image /ImageFile:" + Q(bigImage) +
+                        " /SWMFile:" + Q(Path.Combine(swmStaging, "install.swm")) + " /FileSize:3800");
+
+                    Report("Copying split image chunks...", 85);
+                    RunRobocopy(swmStaging, Path.Combine(usbDest, "sources"));
+
+                    result.Warnings.Add(
+                        Path.GetFileName(bigImage) + " was larger than 4 GB and was written as install.swm chunks " +
+                        "in sources\\ (Windows setup reads these automatically).");
+                }
+                finally
+                {
+                    try { Directory.Delete(swmStaging, true); } catch { }
+                }
+            }
+            else if (tooBig)
+            {
+                result.Warnings.Add(
+                    Path.GetFileName(bigImage) + " is larger than 4 GB; NTFS was selected so no split was needed.");
+            }
+
+            Report("Setup files copied.", 95);
         }
 
-        static void SplitWim(string wimPath, string outputDir)
+        static void RunRobocopyArgs(string source, string dest, string extraArgs)
         {
-            string baseName = Path.GetFileNameWithoutExtension(wimPath);
-            string swmPath = Path.Combine(outputDir, baseName + ".swm");
-            Run("dism.exe", "/Split-Image /ImageFile:\"" + wimPath + "\" /SWMFile:\"" + swmPath + "\" /FileSize:3800");
-            File.Delete(wimPath); // so robocopy doesn't drag the oversized original onto the stick
+            string args = Q(source) + " " + Q(dest) + " /E /R:2 /W:2 /NFL /NDL /NJH /NJS /NP" + extraArgs;
+            using (Process p = Process.Start(MakePsi("robocopy.exe", args)))
+            {
+                string stdout = p.StandardOutput.ReadToEnd();
+                p.StandardError.ReadToEnd();
+                p.WaitForExit();
+                if (p.ExitCode >= 8)
+                    throw new InvalidOperationException(
+                        "robocopy failed (exit code " + p.ExitCode + "):\n" + stdout.Trim());
+            }
+        }
+
+        static string FindBigImage(string isoRoot)
+        {
+            string wim = Path.Combine(isoRoot, "sources", "install.wim");
+            if (File.Exists(wim)) return wim;
+            string esd = Path.Combine(isoRoot, "sources", "install.esd");
+            if (File.Exists(esd)) return esd;
+            return null;
+        }
+
+        // ------------------------------------------------------------------
+        // Office payload
+        // ------------------------------------------------------------------
+
+        // Rejects anything FAT32 cannot store (max file size 4 GB - 1). Called
+        // BEFORE the stick is formatted so we fail safely. The Windows ISO's
+        // oversized WIM is handled by splitting; the Office payload cannot be.
+        static void EnsureFat32Compatible(string root, string what)
+        {
+            try
+            {
+                foreach (string file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                {
+                    long len;
+                    try { len = new FileInfo(file).Length; }
+                    catch { continue; }
+                    if (len > 4L * 1024 * 1024 * 1024 - 1)
+                        throw new InvalidOperationException(string.Format(
+                            "{0} contains a file larger than 4 GB ({1}) which FAT32 cannot store. " +
+                            "Nothing has been written to the USB disk. Use an Office ISO whose largest file is " +
+                            "under 4 GB, or choose NTFS (legacy BIOS boot only).", what, Path.GetFileName(file)));
+                }
+            }
+            catch (InvalidOperationException) { throw; }
+            catch { }
+        }
+
+        // Fails before formatting when the payload simply cannot fit, instead
+        // of dying halfway through a 10 GB copy.
+        static void EnsureSpace(string isoRoot, string officeRoot, List<SoftwareItem> software, UsbDisk target)
+        {
+            long needed = DirSize(isoRoot);
+            if (officeRoot != null) needed += DirSize(officeRoot);
+            foreach (SoftwareItem item in software)
+            {
+                try { needed += new FileInfo(item.FilePath).Length; }
+                catch { }
+            }
+
+            long usable = (long)(target.SizeBytes * 0.97); // filesystem overhead
+            if (needed > usable)
+                throw new InvalidOperationException(string.Format(
+                    "Not enough room on the USB disk: the payload needs about {0} but the disk holds {1}. " +
+                    "Nothing has been written to the USB disk.",
+                    UsbDisk.FormatSize(needed), UsbDisk.FormatSize(target.SizeBytes)));
+        }
+
+        static long DirSize(string root)
+        {
+            long total = 0;
+            try
+            {
+                foreach (string file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                {
+                    try { total += new FileInfo(file).Length; }
+                    catch { }
+                }
+            }
+            catch { }
+            return total;
+        }
+
+        // Copies the Office ISO's payload into the $OEM$ folder and writes the
+        // ODT configuration.xml that installs it silently on the target PC.
+        static void CopyOfficePayload(string officeRoot, string usbRoot, OfficeSetup office, BuildResult result)
+        {
+            string dest = Path.Combine(usbRoot + ":\\", "sources", "$OEM$", "$$", "Setup",
+                "Software", OfficeSupport.PayloadFolderName);
+            Directory.CreateDirectory(dest);
+
+            RunRobocopy(officeRoot, dest);
+
+            string config = null;
+            if (office.UseIsoConfig)
+            {
+                string isoConfig = OfficeSupport.FindIsoConfig(officeRoot);
+                if (isoConfig != null)
+                {
+                    config = OfficeSupport.RewriteIsoConfig(File.ReadAllText(isoConfig));
+                    if (config != null)
+                        result.Warnings.Add("Office: using the configuration.xml found inside the ISO " +
+                            "(SourcePath repointed to the payload, display forced silent).");
+                }
+            }
+            if (config == null)
+                config = OfficeSupport.GenerateConfigurationXml(office);
+
+            File.WriteAllText(Path.Combine(dest, "configuration.xml"), config, new UTF8Encoding(false));
+
+            result.Warnings.Add("Queued: Microsoft Office - " + office.ProductId + " (" +
+                office.Language + ", " + office.Edition + "-bit) from " + Path.GetFileName(office.IsoPath));
+
+            if (office.ProductId.IndexOf("Volume", StringComparison.OrdinalIgnoreCase) >= 0)
+                result.Warnings.Add("Office: volume editions need volume licensing (KMS/MAK) - activate after install.");
         }
 
         // ------------------------------------------------------------------
@@ -454,22 +618,15 @@ namespace WinUSB
             return "sw" + index.ToString("00") + "_" + SanitizeFileName(Path.GetFileNameWithoutExtension(item.FilePath)) + ext;
         }
 
-        static void WriteOemPayload(string stage, List<SoftwareItem> software, BuildResult result)
+        // Writes sources\$OEM$\$$\Setup\{Scripts,Software} into the USB root.
+        // Windows setup only processes $OEM$ when it sits INSIDE sources\.
+        static void WriteOemPayload(string usbRoot, List<SoftwareItem> software, OfficeSetup office, BuildResult result)
         {
-            // Windows setup only processes $OEM$ when it sits INSIDE the sources
-            // folder: sources\$OEM$\$$\Setup\Scripts\SetupComplete.cmd gets
-            // copied to C:\Windows\Setup\Scripts\SetupComplete.cmd during setup.
-            // At the USB root it is silently ignored.
-            string scriptsDir = Path.Combine(stage, "sources", "$OEM$", "$$", "Setup", "Scripts");
-            string softwareDir = Path.Combine(stage, "sources", "$OEM$", "$$", "Setup", "Software");
-
-            // The stage folder is cached between builds - clear stale payload
-            // files so installers from a previous selection don't linger.
-            if (Directory.Exists(softwareDir)) Directory.Delete(softwareDir, true);
+            string usbDest = usbRoot + ":\\";
+            string scriptsDir = Path.Combine(usbDest, "sources", "$OEM$", "$$", "Setup", "Scripts");
+            string softwareDir = Path.Combine(usbDest, "sources", "$OEM$", "$$", "Setup", "Software");
             Directory.CreateDirectory(scriptsDir);
             Directory.CreateDirectory(softwareDir);
-            string oldCmd = Path.Combine(scriptsDir, "SetupComplete.cmd");
-            if (File.Exists(oldCmd)) File.Delete(oldCmd);
 
             for (int i = 0; i < software.Count; i++)
             {
@@ -479,10 +636,34 @@ namespace WinUSB
             }
 
             File.WriteAllText(Path.Combine(scriptsDir, "SetupComplete.cmd"),
-                GenerateSetupCompleteCmd(software), new UTF8Encoding(false));
+                GenerateSetupCompleteCmd(software, office), new UTF8Encoding(false));
+
+            // Fallback hook: some Windows 11 builds skip SetupComplete.cmd. This
+            // copy lands in the Default profile's Startup folder, so it runs at
+            // first logon IF (and only if) SetupComplete never ran - the flag
+            // file it checks is only written by SetupComplete itself.
+            string startupDir = Path.Combine(usbDest, "$OEM$", "$1", "Users", "Default",
+                "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
+            Directory.CreateDirectory(startupDir);
+            File.WriteAllText(Path.Combine(startupDir, "WinUSB-Install.cmd"),
+                GenerateFallbackCmd(software, office), new UTF8Encoding(false));
         }
 
-        public static string GenerateSetupCompleteCmd(List<SoftwareItem> software)
+        // The Office install block shared by SetupComplete.cmd and the
+        // fallback script. Runs last so that if Office were ever to stall,
+        // the smaller installers have already completed.
+        static void AppendOfficeBlock(StringBuilder sb, OfficeSetup office)
+        {
+            if (office == null) return;
+            sb.AppendLine("echo [%TIME%] Installing Microsoft Office (" + office.ProductId + ") >> \"%LOG%\"");
+            sb.AppendLine("pushd \"" + OfficeSupport.PayloadFolderName + "\"");
+            sb.AppendLine("start /wait \"\" setup.exe /configure configuration.xml");
+            sb.AppendLine("echo [%TIME%] Office setup exit code %ERRORLEVEL% >> \"%LOG%\"");
+            sb.AppendLine("popd");
+            sb.AppendLine();
+        }
+
+        public static string GenerateSetupCompleteCmd(List<SoftwareItem> software, OfficeSetup office)
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("@echo off");
@@ -505,7 +686,8 @@ namespace WinUSB
                         sb.AppendLine("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + safeName + "\" " + item.Args + " >> \"%LOG%\" 2>&1");
                         break;
                     case InstallerKind.Msi:
-                        sb.AppendLine("msiexec /i \"" + safeName + "\" " + item.Args + " >> \"%LOG%\" 2>&1");
+                        sb.AppendLine("msiexec /i \"" + safeName + "\" " + item.Args +
+                            " /L*v \"%WINDIR%\\Setup\\Scripts\\" + safeName + ".msilog\" >> \"%LOG%\" 2>&1");
                         break;
                     default:
                         sb.AppendLine("\"" + safeName + "\" " + item.Args + " >> \"%LOG%\" 2>&1");
@@ -515,8 +697,62 @@ namespace WinUSB
                 sb.AppendLine();
             }
 
+            AppendOfficeBlock(sb, office);
+
             sb.AppendLine("popd");
             sb.AppendLine("echo WinUSB software install finished %DATE% %TIME% >> \"%LOG%\"");
+            // Marker for the first-logon fallback: its presence means this
+            // script DID run, so the fallback can remove itself silently.
+            sb.AppendLine("echo done > \"%WINDIR%\\Setup\\Scripts\\winusb_done.flag\"");
+            return sb.ToString();
+        }
+
+        // First-logon fallback version of the install script. Placed in the
+        // Default profile Startup folder via $OEM$\$1. Runs only if
+        // SetupComplete.cmd was never executed (no flag file), then deletes
+        // itself. Runs as the logged-on user; machine-wide MSIs will pop ONE
+        // UAC consent prompt the first time.
+        public static string GenerateFallbackCmd(List<SoftwareItem> software, OfficeSetup office)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("@echo off");
+            sb.AppendLine("rem WinUSB first-logon fallback - only acts if SetupComplete.cmd never ran.");
+            sb.AppendLine("if exist \"%WINDIR%\\Setup\\Scripts\\winusb_done.flag\" goto cleanup");
+            sb.AppendLine("set LOG=%WINDIR%\\Setup\\Scripts\\winusb_install.log");
+            sb.AppendLine("echo WinUSB fallback install started %DATE% %TIME% >> \"%LOG%\"");
+            sb.AppendLine("pushd \"%WINDIR%\\Setup\\Scripts\\Software\"");
+            sb.AppendLine();
+
+            for (int i = 0; i < software.Count; i++)
+            {
+                SoftwareItem item = software[i];
+                string safeName = PayloadSafeName(item, i + 1);
+                string label = item.FileName;
+
+                sb.AppendLine("echo [%TIME%] Installing " + label + " >> \"%LOG%\"");
+                switch (item.Kind)
+                {
+                    case InstallerKind.PowerShell:
+                        sb.AppendLine("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + safeName + "\" " + item.Args + " >> \"%LOG%\" 2>&1");
+                        break;
+                    case InstallerKind.Msi:
+                        sb.AppendLine("msiexec /i \"" + safeName + "\" " + item.Args +
+                            " /L*v \"%WINDIR%\\Setup\\Scripts\\" + safeName + ".msilog\" >> \"%LOG%\" 2>&1");
+                        break;
+                    default:
+                        sb.AppendLine("\"" + safeName + "\" " + item.Args + " >> \"%LOG%\" 2>&1");
+                        break;
+                }
+                sb.AppendLine("echo [%TIME%] " + label + " exit code %ERRORLEVEL% >> \"%LOG%\"");
+                sb.AppendLine();
+            }
+
+            AppendOfficeBlock(sb, office);
+
+            sb.AppendLine("popd");
+            sb.AppendLine("echo WinUSB fallback install finished %DATE% %TIME% >> \"%LOG%\"");
+            sb.AppendLine(":cleanup");
+            sb.AppendLine("del \"%~f0\"");
             return sb.ToString();
         }
 

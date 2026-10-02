@@ -16,7 +16,8 @@ if not exist bin mkdir bin
 
 "%CSC%" /nologo /out:bin\WinUSB.exe /target:winexe /platform:anycpu /win32manifest:app.manifest ^
     /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Management.dll ^
-    Program.cs MainForm.cs UsbBuilder.cs InstallerDetector.cs
+    /r:System.Xml.dll ^
+    Program.cs MainForm.cs UsbBuilder.cs InstallerDetector.cs OfficeSupport.cs OfficeDialog.cs
 
 if errorlevel 1 (
     echo.

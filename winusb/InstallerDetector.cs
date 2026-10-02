@@ -13,6 +13,7 @@ namespace WinUSB
         WixBurn,
         Squirrel,
         InstallShield,
+        AdvancedInstaller,
         Batch,
         PowerShell,
         Unknown
@@ -51,6 +52,7 @@ namespace WinUSB
                 case InstallerKind.WixBurn: return "WiX Bundle";
                 case InstallerKind.Squirrel: return "Squirrel";
                 case InstallerKind.InstallShield: return "InstallShield";
+                case InstallerKind.AdvancedInstaller: return "Advanced Installer";
                 case InstallerKind.Batch: return "Batch";
                 case InstallerKind.PowerShell: return "PowerShell";
                 default: return "Unknown";
@@ -75,6 +77,7 @@ namespace WinUSB
                 probe.IndexOf("burn engine", StringComparison.OrdinalIgnoreCase) >= 0) return InstallerKind.WixBurn;
             if (probe.IndexOf("squirrel", StringComparison.OrdinalIgnoreCase) >= 0) return InstallerKind.Squirrel;
             if (probe.IndexOf("installshield", StringComparison.OrdinalIgnoreCase) >= 0) return InstallerKind.InstallShield;
+            if (probe.IndexOf("advanced installer", StringComparison.OrdinalIgnoreCase) >= 0) return InstallerKind.AdvancedInstaller;
             return InstallerKind.Unknown;
         }
 
@@ -133,6 +136,8 @@ namespace WinUSB
                 case InstallerKind.Squirrel: return "--silent";
                 // Silent only works if a setup.iss response file sits next to it.
                 case InstallerKind.InstallShield: return "-s";
+                // Advanced Installer bootstrappers wrap an MSI: no UI, silent MSI.
+                case InstallerKind.AdvancedInstaller: return "/exenoui /qn";
                 case InstallerKind.Batch: return "";
                 case InstallerKind.PowerShell: return "";
                 // Most unknown EXEs are NSIS-style; user can edit the column.
