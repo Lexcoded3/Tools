@@ -20,8 +20,10 @@ selected installers alongside it, and burns the whole thing to the stick.
   `.cmd` and `.ps1`
 - **Microsoft Office from an Office ISO** — the ISO's offline payload is copied
   into the `$OEM$` folder and installed silently with the Office Deployment
-  Tool (`setup.exe /configure configuration.xml`), generated for your chosen
-  product ID / language / bitness
+  Tool. **No product ID needed**: WinUSB writes a configuration for every
+  known Office edition (2021/2024/2019 volume, 2021/2024 retail, Microsoft 365)
+  and the installer tries them in order until the one matching your ISO's
+  contents succeeds
 - **Editable install order and arguments** — full control per installer
 - **Logged** — after install, check `C:\Windows\Setup\Scripts\winusb_install.log`
   to see exactly what ran and each exit code
@@ -46,10 +48,11 @@ Visual Studio, nothing to install.
    Setup, InstallShield, Advanced Installer, WiX, Squirrel...) and silent
    args are filled in automatically. Check/adjust per installer if needed.
 6. *(Optional)* **Add Office ISO...** — pick your Microsoft Office 2019/2021/
-   Microsoft 365 offline ISO, choose the product ID that matches the ISO you
-   own (e.g. `ProPlus2021Volume`), language and bitness. WinUSB copies the
-   ISO's payload to the stick and generates the silent `configuration.xml`
-   (or reuses the one inside the ISO, repointing its SourcePath).
+   2024/Microsoft 365 offline ISO, then set the language and bitness. **No
+   product ID needed**: WinUSB copies the ISO's payload to the stick and
+   writes a silent configuration for every known Office edition; at install
+   time they are tried in order (the ISO's own configuration.xml first, if
+   present) and the one that matches the ISO's contents wins.
 7. Click **BUILD USB**, confirm the wipe, wait for "Done!".
 
 Then boot the target machine from the stick, install Windows normally, and
@@ -67,7 +70,9 @@ ISO ──Mount-DiskImage──▶ mounted drive (validated: setup.exe present,
        ├─ robocopy:  ISO ──▶ USB   (oversized install.wim excluded on FAT32,
        │                            split via DISM into install.swm chunks)
        ├─ Office:    Office ISO ──▶ sources\$OEM$\$$\Setup\Software\Office\
-       │                            + configuration.xml (ODT silent install)
+       │                            + configuration_*.xml (ODT, product
+       │                              auto-detected: tried in order until
+       │                              one matches the ISO's contents)
        └─ $OEM$:     sources\$OEM$\$$\Setup\Scripts\SetupComplete.cmd
                      sources\$OEM$\$$\Setup\Software\sw01_app.exe ...
 ```
@@ -101,11 +106,12 @@ $OEM$ must sit inside `sources\` or setup ignores it.
 - **Robocopy ERROR 123 / mangled paths** — same cause: a sandbox or wrapper
   redirecting `AppData` paths. Run the EXE directly, not through a wrapper.
 - **Office didn't install** — on the new PC check the Office Deployment
-  Tool's own logs (`C:\Windows\Setup\Scripts\OfficeSetup*.log`). The most
-  common cause is a product ID that does not match the ISO's contents (e.g.
-  `ProPlus2021Volume` for a retail ISO) — ODT reports the product was not
-  found in the source. Rebuild with the matching ID. Office installs last, so
-  a failing Office install never blocks the other apps.
+  Tool's own logs (`C:\Windows\Setup\Scripts\OfficeSetup*.log`) plus
+  `winusb_install.log`, which lists every candidate product tried and its
+  exit code. Since the product is auto-detected, the usual causes are: the
+  Language setting doesn't exist in the ISO (ODT fails fast on that), or the
+  ISO contains an edition newer than the known list. Office installs last,
+  so a failing Office install never blocks the other apps.
 - **"The Office ISO contains a file larger than 4 GB"** — FAT32 cannot store
   such files and the Office payload cannot be split like install.wim. Use an
   Office ISO whose largest file is under 4 GB, or choose NTFS (legacy BIOS

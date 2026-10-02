@@ -428,6 +428,25 @@ namespace WinUSB
             return null;
         }
 
+        // Volume label of a mounted drive (VLSC Office media labels look like
+        // "O21_PROPLUS_VOLUME_EN-US"). Used only as a hint for ordering the
+        // candidate product configurations.
+        static string GetVolumeLabel(string root)
+        {
+            try
+            {
+                string letter = root.Substring(0, 1);
+                using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(
+                    "SELECT VolumeName FROM Win32_LogicalDisk WHERE DeviceID='" + letter + ":'"))
+                {
+                    foreach (System.Management.ManagementObject d in searcher.Get())
+                        return d["VolumeName"] == null ? "" : d["VolumeName"].ToString();
+                }
+            }
+            catch { }
+            return "";
+        }
+
         // ------------------------------------------------------------------
         // Copy + WIM handling
         // ------------------------------------------------------------------
@@ -575,7 +594,11 @@ namespace WinUSB
         }
 
         // Copies the Office ISO's payload into the $OEM$ folder and writes the
-        // ODT configuration.xml that installs it silently on the target PC.
+        // ODT configurations that install it silently on the target PC.
+        //
+        // There is deliberately no product ID to configure: one configuration
+        // is written per known Office edition and the install script tries
+        // them in order until the one matching the ISO's contents succeeds.
         static void CopyOfficePayload(string officeRoot, string usbRoot, OfficeSetup office, BuildResult result)
         {
             string dest = Path.Combine(usbRoot + ":\\", "sources", "$OEM$", "$$", "Setup",
@@ -584,28 +607,41 @@ namespace WinUSB
 
             RunRobocopy(officeRoot, dest);
 
-            string config = null;
+            // 1) The ISO's own configuration.xml (when it has one) is tried
+            //    first - its product ID is authoritative for that media.
             if (office.UseIsoConfig)
             {
                 string isoConfig = OfficeSupport.FindIsoConfig(officeRoot);
                 if (isoConfig != null)
                 {
-                    config = OfficeSupport.RewriteIsoConfig(File.ReadAllText(isoConfig));
-                    if (config != null)
-                        result.Warnings.Add("Office: using the configuration.xml found inside the ISO " +
-                            "(SourcePath repointed to the payload, display forced silent).");
+                    string rewritten = OfficeSupport.RewriteIsoConfig(File.ReadAllText(isoConfig));
+                    if (rewritten != null)
+                    {
+                        File.WriteAllText(Path.Combine(dest, OfficeSupport.IsoConfigFileName), rewritten, new UTF8Encoding(false));
+                        string isoProduct = OfficeSupport.FindProductId(rewritten);
+                        result.Warnings.Add("Office: the ISO ships its own configuration.xml - it is tried first" +
+                            (string.IsNullOrEmpty(isoProduct) ? "." : " (" + isoProduct + ")."));
+                    }
                 }
             }
-            if (config == null)
-                config = OfficeSupport.GenerateConfigurationXml(office);
 
-            File.WriteAllText(Path.Combine(dest, "configuration.xml"), config, new UTF8Encoding(false));
+            // 2) Candidate configurations, one per known Office edition, most
+            //    likely first (the ISO's volume label is used as a hint).
+            string volumeLabel = GetVolumeLabel(officeRoot);
+            List<OfficeProduct> candidates = OfficeSupport.OrderedCandidates(volumeLabel);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                string xml = OfficeSupport.GenerateConfigurationXml(candidates[i].Id, office.Language, office.Edition);
+                File.WriteAllText(Path.Combine(dest, OfficeSupport.CandidateConfigName(i + 1, candidates[i].Id)),
+                    xml, new UTF8Encoding(false));
+            }
 
-            result.Warnings.Add("Queued: Microsoft Office - " + office.ProductId + " (" +
-                office.Language + ", " + office.Edition + "-bit) from " + Path.GetFileName(office.IsoPath));
+            result.Warnings.Add("Queued: Microsoft Office from " + Path.GetFileName(office.IsoPath) +
+                " - the product is detected automatically at install time (" + candidates.Count +
+                " known editions" + (volumeLabel.Length > 0 ? ", ISO label \"" + volumeLabel + "\"" : "") + ").");
 
-            if (office.ProductId.IndexOf("Volume", StringComparison.OrdinalIgnoreCase) >= 0)
-                result.Warnings.Add("Office: volume editions need volume licensing (KMS/MAK) - activate after install.");
+            result.Warnings.Add("Office: the Language setting must exist in your ISO (currently " + office.Language +
+                "); volume editions need KMS/MAK activation after install.");
         }
 
         // ------------------------------------------------------------------
@@ -649,16 +685,39 @@ namespace WinUSB
                 GenerateFallbackCmd(software, office), new UTF8Encoding(false));
         }
 
-        // The Office install block shared by SetupComplete.cmd and the
-        // fallback script. Runs last so that if Office were ever to stall,
-        // the smaller installers have already completed.
+        // The Office install block shared by SetupComplete.cmd and the fallback
+        // script. The product is auto-detected at install time: every
+        // configuration_*.xml written at build time is tried in name order and
+        // the first one that actually installs wins. Wrong products fail fast
+        // against the local source (nothing is installed), and a success only
+        // counts when the ClickToRun engine is really present afterwards - so
+        // a misleading exit code cannot stop the search early. Runs last so a
+        // stalled Office install cannot block the smaller apps.
         static void AppendOfficeBlock(StringBuilder sb, OfficeSetup office)
         {
             if (office == null) return;
-            sb.AppendLine("echo [%TIME%] Installing Microsoft Office (" + office.ProductId + ") >> \"%LOG%\"");
+            sb.AppendLine("echo [%TIME%] Installing Microsoft Office (product auto-detected) >> \"%LOG%\"");
             sb.AppendLine("pushd \"" + OfficeSupport.PayloadFolderName + "\"");
-            sb.AppendLine("start /wait \"\" setup.exe /configure configuration.xml");
-            sb.AppendLine("echo [%TIME%] Office setup exit code %ERRORLEVEL% >> \"%LOG%\"");
+            sb.AppendLine("setlocal enabledelayedexpansion");
+            sb.AppendLine("set \"PF86=%ProgramFiles(x86)%\"");
+            sb.AppendLine("set OFFICE_OK=0");
+            sb.AppendLine("for %%C in (\"configuration_*.xml\") do (");
+            sb.AppendLine("    if !OFFICE_OK!==0 (");
+            sb.AppendLine("        echo [!TIME!] Office: trying %%~nxC >> \"%LOG%\"");
+            sb.AppendLine("        start /wait \"\" setup.exe /configure \"%%~C\"");
+            sb.AppendLine("        set RC=!ERRORLEVEL!");
+            sb.AppendLine("        echo [!TIME!] Office: %%~nxC exit code !RC! >> \"%LOG%\"");
+            sb.AppendLine("        if !RC!==0 if exist \"%ProgramFiles%\\Common Files\\Microsoft Shared\\ClickToRun\\OfficeClickToRun.exe\" set OFFICE_OK=1");
+            sb.AppendLine("        if !RC!==0 if exist \"%PF86%\\Common Files\\Microsoft Shared\\ClickToRun\\OfficeClickToRun.exe\" set OFFICE_OK=1");
+            sb.AppendLine("        if !RC!==3010 set OFFICE_OK=1");
+            sb.AppendLine("    )");
+            sb.AppendLine(")");
+            sb.AppendLine("if !OFFICE_OK!==1 (");
+            sb.AppendLine("    echo [!TIME!] Office installed successfully. >> \"%LOG%\"");
+            sb.AppendLine(") else (");
+            sb.AppendLine("    echo [!TIME!] Office: no known product ID matched this ISO - check the OfficeSetup logs in %WINDIR%\\Setup\\Scripts >> \"%LOG%\"");
+            sb.AppendLine(")");
+            sb.AppendLine("endlocal");
             sb.AppendLine("popd");
             sb.AppendLine();
         }

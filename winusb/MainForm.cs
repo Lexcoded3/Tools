@@ -296,8 +296,8 @@ namespace WinUSB
             }
             else
             {
-                lblOfficeInfo.Text = Path.GetFileName(office.IsoPath) + "  -  " + office.ProductId +
-                    " (" + office.Language + ", " + office.Edition + "-bit)";
+                lblOfficeInfo.Text = Path.GetFileName(office.IsoPath) + "  -  " + office.Language + ", " +
+                    office.Edition + "-bit  (product auto-detected at install)";
                 lblOfficeInfo.ForeColor = Color.DarkSlateGray;
                 btnRemoveOffice.Enabled = true;
             }
