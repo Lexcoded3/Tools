@@ -184,22 +184,6 @@ function api_error(string $message, int $code = 400): void
     api_out(['ok' => false, 'error' => $message], $code);
 }
 
-/**
- * Send JSON to the client immediately and keep the script alive so a
- * registered shutdown function can finish background work (e.g. saving the
- * generated image locally) after the browser already has the response.
- * The caller must return (not exit) after calling this.
- */
-function api_out_detached(array $payload): void
-{
-    ignore_user_abort(true);
-    echo json_encode($payload, JSON_UNESCAPED_SLASHES);
-    while (ob_get_level() > 0) {
-        ob_end_flush();
-    }
-    flush();
-}
-
 function ensure_dirs(): void
 {
     if (!is_dir(IMG_DIR)) {
@@ -1097,9 +1081,7 @@ function fetch_text_key(bool $forceRefresh = false): string
     }
 
     if (in_array($status, ['success', 'already_verified'], true) && preg_match('/^[a-f0-9]{64}$/i', $key)) {
-        $cached['text']    = strtolower($key);
-        $cached['text_at'] = time();
-        file_put_contents(KEY_FILE, json_encode($cached));
+        save_key_file(['text' => strtolower($key), 'text_at' => time()]);
         return strtolower($key);
     }
 
@@ -1166,6 +1148,49 @@ function load_key_file(): array
 }
 
 /**
+ * Merge-persist key state.
+ *
+ * The image key, the text key, the browser id and the manual key each hold
+ * their own snapshot of the file, so a plain read-modify-write would drop
+ * whatever another caller had just stored (the browser id used to vanish
+ * that way, minting a new one on every request).
+ */
+function save_key_file(array $patch): void
+{
+    ensure_dirs();
+    @file_put_contents(KEY_FILE, json_encode(array_merge(load_key_file(), $patch)));
+}
+
+/**
+ * Stable client id for the IMAGE host.
+ *
+ * The service binds each session key to a client id and answers
+ * `client_update_required` when the request carries none — the tokenless
+ * handshake only works with one (the service changed this in late September
+ * 2026). Persisted in key.json so a cached key always stays paired with the
+ * id that produced it.
+ *
+ * The TEXT host behaves the opposite way: it issues keys without an id and
+ * refuses requests that send one. Never reuse this there.
+ */
+function image_browser_id(): string
+{
+    static $id = null;
+    if ($id !== null) {
+        return $id;
+    }
+
+    $cached = load_key_file();
+    if (!empty($cached['browser_id']) && preg_match('/^[a-f0-9]{32}$/', (string) $cached['browser_id'])) {
+        return $id = strtolower((string) $cached['browser_id']);
+    }
+
+    $fresh = bin2hex(random_bytes(16));
+    save_key_file(['browser_id' => $fresh]);
+    return $id = $fresh;
+}
+
+/**
  * Obtain a usable access key.
  * - If the admin has pasted a manual key (advanced settings), prefer it.
  * - Otherwise ask the service tokenlessly (no CAPTCHA) and cache it.
@@ -1185,7 +1210,7 @@ function fetch_user_key(bool $forceRefresh = false): string
     $status = 'unknown';
     $key    = '';
     for ($attempt = 0; $attempt < 4; $attempt++) {
-        $res = http_json(BASE . '/api/verifyUser?thread=0&__cacheBust=' . random_float(), null, 40);
+        $res = http_json(BASE . '/api/verifyUser?browserId=' . image_browser_id() . '&thread=0&__cacheBust=' . random_float(), null, 40);
         $status = (string) ($res['status'] ?? 'unknown');
         $key    = (string) ($res['userKey'] ?? '');
         if (in_array($status, ['success', 'already_verified'], true) && preg_match('/^[a-f0-9]{64}$/i', $key)) {
@@ -1197,14 +1222,21 @@ function fetch_user_key(bool $forceRefresh = false): string
     }
 
     if (in_array($status, ['success', 'already_verified'], true) && preg_match('/^[a-f0-9]{64}$/i', $key)) {
-        $cached['auto'] = strtolower($key);
-        $cached['at']   = time();
-        file_put_contents(KEY_FILE, json_encode($cached));
+        save_key_file(['auto' => strtolower($key), 'at' => time()]);
         return strtolower($key);
     }
 
     if ($status === 'invalid_key') {
         api_error('The image service rejected our session key. Try again in a minute.', 502);
+    }
+
+    if ($status === 'client_update_required') {
+        // The service changed its handshake and now treats a request without
+        // a client id as an outdated client. api.php has to be a version that
+        // sends one — see image_browser_id().
+        api_error('The image service rejected our client as outdated (client_update_required) — ' .
+            'pixelforge/api.php is out of date. Update it, or paste a session key in the advanced ' .
+            'settings (data/key.json, "manual").', 502);
     }
 
     api_error(
@@ -1411,13 +1443,9 @@ function find_history_by_key(array $key, string $dir): ?array
 /**
  * Persist the finished image + record it in history.
  *
- * Fast path: the history entry is written immediately and the response hands
- * the signed image URL straight to the browser, so the tile starts loading
- * while the local copy is still being downloaded. The download happens in
- * finalize_image_background (a shutdown hook, after the response is sent).
- * Story mode opts into the synchronous path (sync=1) because its video
- * render draws the scene images onto a same-origin canvas — a cross-origin
- * signed URL would taint it.
+ * The service returns a single-use download URL that is bound to this server's
+ * IP, so it is always fetched here and the browser only ever gets the local
+ * copy (see below).
  */
 function finalize_image(array $res, array $in): array
 {
@@ -1436,7 +1464,6 @@ function finalize_image(array $res, array $in): array
     $entry = [
         'id'          => $id,
         'file'        => $file,
-        'remote'      => $remote,   // signed URL — the browser loads this instantly
         'prompt'      => $in['prompt'],
         'prompt_orig' => $in['prompt_orig'] ?? $in['prompt'],
         'negative'    => $in['negative'],
@@ -1452,78 +1479,32 @@ function finalize_image(array $res, array $in): array
     array_unshift($history, $entry);
     save_history(array_slice($history, 0, 500)); // cap history at 500 entries
 
-    // Synchronous path (story mode): the local file must exist before the
-    // response — download it now, exactly as before this change.
-    if (!empty($in['sync'])) {
-        $bin = try_fetch($remote, 60);
-        $ok  = strlen($bin) >= 200 && (!function_exists('getimagesizefromstring') || @getimagesizefromstring($bin) !== false);
-        if (!$ok) {
-            $history = array_values(array_filter(load_history(), static fn ($e) => ($e['id'] ?? '') !== $id));
-            save_history(array_slice($history, 0, 500));
-            api_error('Generation finished but the image could not be saved. Please try again.', 502);
-        }
-        $hash = hash('sha256', $bin);
-        file_put_contents(IMG_DIR . '/' . $file, $bin);
-        $entry['hash'] = $hash;
-        unset($entry['remote']);
-        foreach ($history as &$e) {
-            if (($e['id'] ?? '') === $id) {
-                $e['hash'] = $hash;
-                unset($e['remote']);
-                break;
-            }
-        }
-        unset($e);
-        save_history(array_slice($history, 0, 500));
-        return ['ok' => true, 'image' => $entry, 'url' => 'data/images/' . rawurlencode($file)];
-    }
-
-    // Fast path: save the local copy after the response is sent.
-    register_shutdown_function('finalize_image_background', $id, $file, $remote);
-
-    return ['ok' => true, 'image' => $entry, 'url' => $remote, 'pending' => true];
-}
-
-/**
- * Shutdown hook: download the finished image from its signed URL and write
- * the local copy + hash. Runs AFTER the response is already on its way to
- * the browser, so the user sees the image instantly while history still ends
- * up complete. On failure the entry keeps its `remote` URL — history and
- * downloads lazily retry the fetch (see ensure_image_file).
- */
-function finalize_image_background(string $id, string $file, string $remote): void
-{
-    if ($file === '' || $remote === '') {
-        return;
-    }
+    // The service's image URL is single-use and bound to this server's IP:
+    // whichever side consumes it first, the other gets nothing back. Always
+    // download now and serve the local copy — history, downloads and story
+    // mode all read data/images/, and a same-origin URL keeps the story
+    // canvas untainted.
     $bin = try_fetch($remote, 60);
-    if (strlen($bin) < 200 || (function_exists('getimagesizefromstring') && @getimagesizefromstring($bin) === false)) {
-        return; // leave pending — a later lazy fetch can retry
-    }
-    $hash = hash('sha256', $bin);
-
-    $history = load_history();
-
-    // Byte-identical copy already saved? Drop the pending entry — the browser
-    // already saw the same pixels via the signed URL.
-    if (find_history_by_hash($hash, IMG_DIR) !== null) {
-        $history = array_values(array_filter($history, static fn ($e) => ($e['id'] ?? '') !== $id));
+    $ok  = strlen($bin) >= 200 && (!function_exists('getimagesizefromstring') || @getimagesizefromstring($bin) !== false);
+    if (!$ok) {
+        $history = array_values(array_filter(load_history(), static fn ($e) => ($e['id'] ?? '') !== $id));
         save_history(array_slice($history, 0, 500));
-        return;
+        api_error('Generation finished but the image could not be downloaded from the service. Please try again.', 502);
     }
 
-    if (@file_put_contents(IMG_DIR . '/' . $file, $bin) === false) {
-        return;
-    }
-    foreach ($history as &$entry) {
-        if (($entry['id'] ?? '') === $id) {
-            $entry['hash'] = $hash;
-            unset($entry['remote']);
+    $hash = hash('sha256', $bin);
+    file_put_contents(IMG_DIR . '/' . $file, $bin);
+    $entry['hash'] = $hash;
+    foreach ($history as &$e) {
+        if (($e['id'] ?? '') === $id) {
+            $e['hash'] = $hash;
             break;
         }
     }
-    unset($entry);
+    unset($e);
     save_history(array_slice($history, 0, 500));
+
+    return ['ok' => true, 'image' => $entry, 'url' => 'data/images/' . rawurlencode($file)];
 }
 
 /**
@@ -2070,7 +2051,7 @@ function generate_image_attempt(array $in): ?array
  * or null when the upstream queue stayed busy after a patient wait (the caller
  * then retries once with a fresh key).
  */
-function generate_image_pass(array $in, string $key): ?array
+function generate_image_pass(array $in, string $key, int $attempt = 0): ?array
 {
     $requestId = random_float();
     $body      = [
@@ -2153,6 +2134,13 @@ function generate_image_pass(array $in, string $key): ?array
             }
         }
         return null; // still busy — the caller retries with a fresh key
+    }
+
+    // Occasionally the service reports success but leaves the image URL out of
+    // the response. That is transient, so retry once with a fresh key instead
+    // of surfacing a confusing "responded: success" error.
+    if ($status === 'success' && $attempt === 0) {
+        return generate_image_pass($in, fetch_user_key(true), 1);
     }
 
     // Upstream answered with something we don't understand (e.g. an
@@ -3057,13 +3045,6 @@ switch ($action) {
             'ref_blur'     => $refBlur,
             'sync'         => ($_POST['sync'] ?? '') === '1',
         ]);
-        if (!empty($result['pending'])) {
-            // Fast path: send the signed URL now so the browser can start
-            // loading the image while the local copy is saved in the
-            // background (finalize_image_background runs on shutdown).
-            api_out_detached($result);
-            return;
-        }
         api_out($result);
 
     case 'history':
@@ -3239,9 +3220,7 @@ switch ($action) {
         if ($manual !== '' && !preg_match('/^[a-f0-9]{64}$/i', $manual)) {
             api_error('That key does not look valid (must be 64 hex characters).');
         }
-        $cached = load_key_file();
-        $cached['manual'] = $manual;
-        file_put_contents(KEY_FILE, json_encode($cached));
+        save_key_file(['manual' => $manual]);
         api_out(['ok' => true, 'key' => $manual !== '' ? 'manual' : 'auto']);
 
     default:

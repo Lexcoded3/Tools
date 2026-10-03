@@ -86,16 +86,22 @@ it needs internet like everything else here.)
 
 PixelForge is a thin, honest wrapper around the free Perchance image API:
 
-1. **Key acquisition** — `GET /api/verifyUser` on
+1. **Key acquisition** — `GET /api/verifyUser?browserId=…` on
    `image-generation.perchance.org` issues a temporary session access key
-   *without* any CAPTCHA. Keys are cached in `data/key.json` and refreshed
-   automatically when stale.
+   *without* any CAPTCHA. That `browserId` is a stable 32-hex client id kept
+   in `data/key.json`: the service binds every key to it and answers
+   `client_update_required` when the request carries none (the handshake
+   changed in late September 2026). The text host behaves the opposite way
+   and must **not** be sent one. Keys are cached and refreshed automatically
+   when stale.
 2. **Generation** — `POST /api/generate` with your prompt, negative prompt,
    resolution, guidance scale and seed. If the service is busy it queues the
    request; PixelForge polls the queue until the image is ready.
-3. **Download & save** — the finished JPEG is pulled via the service's signed
-   download URL, saved into `data/images/`, and its metadata is recorded in
-   `data/history.json`.
+3. **Download & save** — the service returns a **single-use** download URL that
+   is bound to this server's IP, so it is always fetched server-side straight
+   into `data/images/` and the browser only ever receives the local copy.
+   Handing that URL to the browser would leave the local copy — and with it
+   history, downloads and story mode — empty.
 
 Requests are sent with browser-style headers (User-Agent, Origin, Referer) so
 the service treats them like a normal browser tab — that's the only "trick".
